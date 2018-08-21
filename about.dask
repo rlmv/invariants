@@ -1,0 +1,49 @@
+Launch Many Small Jobs
+
+HPC job schedulers are optimized for large monolithic jobs with many nodes that all need to run as a group at the same time. Dask jobs can be quite a bit more flexible, workers can come and go without strongly affecting the job. So if we separate our job into many smaller jobs we can often get through the job scheduling queue much more quickly than a typical job. This is particularly valuable when we want to get started right away and interact with a Jupyter notebook session rather than waiting for hours for a suitable allocation block to become free.
+
+So, to get a large cluster quickly we recommend allocating a dask-scheduler process on one node with a modest wall time (the intended time of your session) and then allocating many small single-node dask-worker jobs with shorter wall times (perhaps 30 minutes) that can easily squeeze into extra space in the job scheduler. As you need more computation you can add more of these single-node jobs or let them expire.
+
+
+Deploying Dask with MPI https://matthewrocklin.com/blog/work/2017/09/18/pangeo-1
+
+HPC systems use job schedulers like SGE, SLURM, PBS, LSF, and others. Dask has been deployed on all of these systems before either by academic groups or financial companies. However every time we do this it’s a little different and generally tailored to a particular cluster.
+
+We wanted to make something more general. This started out as a GitHub issue on PBS scripts that tried to make a simple common template that people could copy-and-modify. Unfortunately, there were significant challenges with this. HPC systems and their job schedulers seem to focus and easily support only two common use cases:
+
+    Embarrassingly parallel “run this script 1000 times” jobs. This is too simple for what we have to do.
+    MPI jobs. This seemed like overkill, but is the approach that we ended up taking.
+
+Deploying dask is somewhere between these two. It falls into the master-slave pattern (or perhaps more appropriately coordinator-workers). We ended up building an MPI4Py program that launches Dask. MPI is well supported, and more importantly consistently supported, by all HPC job schedulers so depending on MPI provides a level of stability across machines. Now dask.distributed ships with a new dask-mpi executable:
+
+mpirun --np 4 dask-mpi
+
+To be clear, Dask isn’t using MPI for inter-process communication. It’s still using TCP. We’re just using MPI to launch a scheduler and several workers and hook them all together. In pseudocode the dask-mpi executable looks something like this:
+
+https://matthewrocklin.com/blog/work/2016/09/22/cluster-deployments
+
+
+export MINICONDA=Miniconda3-latest-Linux-x86_64.sh
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+bash ~/miniconda.sh
+
+conda install ipython
+pip install dask dask-jobqueue
+
+ipython
+
+from dask_jobqueue import SLURMCluster
+from dask.distributed import Client
+
+class CHTCCluster(SLURMCluster):
+      submit_command = 'sbatch'
+
+cluster = CHTCCluster(cores=16, memory='64 Gb', interface='ib0', queue='pre')
+interface : ib0
+local_directory = /scratch/local/
+
+client = client(cluster)
+
+cluster.scale(1)
+
+alias me="squeue -u nu_bomarchman"
