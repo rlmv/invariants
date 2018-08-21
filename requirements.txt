@@ -1,0 +1,9 @@
+
+pyphi
+dask[complete]
+dask-jobqueue
+plotly
+scipy
+pandas
+openpyxl
+matplotlib
