@@ -23,17 +23,23 @@ def create_directory(name, vers, state):
 # Create/select diretory with network info (name, version, state) to save and identify results
     curr_dir = os.getcwd()
     
-    directory = f"{curr_dir}/{name}_{vers}_{state}"
+    prefix = f"{name}_{vers}_{state}"
+    directory = f"{curr_dir}/{prefix}"
     if not os.path.exists(directory):
         os.mkdir(directory)
-    new_dir_dict = {f'curr_dir': curr_dir, 'name': name, 'vers': vers, 'state': state}
-    return new_dir_dict
-
+    return {
+        'curr_dir': curr_dir, 
+        'name': name, 
+        'vers': vers, 
+        'state': state,
+        'directory': directory,
+        'prefix': prefix
+    }
 
 # In[34]:
 
 
-def concept2pickle(concept):
+def concept2pickle(concept, new_dir_dict):
     # Pickles a concept
     pandas_concept = Series(OrderedDict({
         'mechanism':  concept.subsystem.indices2nodes(concept.mechanism),
@@ -52,7 +58,7 @@ def concept2pickle(concept):
     file_name_no_punct = concept_name.translate(translator)
     file_name = file_name_no_punct.replace(' ','')
     
-    pickled_concept = pandas_concept.to_pickle(f'{new_dir}/{network_name}_{network_version}_{network_state}_{file_name}.file', compression=None)
+    pickled_concept = pandas_concept.to_pickle(f'{new_dir_dict["directory"]}/{new_dir_dict["prefix"]}_{file_name}.file', compression=None)
        
     return pickled_concept
 
@@ -60,7 +66,7 @@ def concept2pickle(concept):
 # In[53]:
 
 
-def pickle_concepts(nodes=None, orders=None, phi_lower_bound=None):
+def pickle_concepts(subsystem, new_dir_dict, nodes=None, orders=None, phi_lower_bound=None):
         
     if nodes is None:
         nodes = subsystem.node_indices
@@ -70,46 +76,47 @@ def pickle_concepts(nodes=None, orders=None, phi_lower_bound=None):
         
     if phi_lower_bound is None:
         phi_lower_bound = -1
+
+#    # excel_path = (f'{new_dir}/{network_name}_{network_version}_{network_state}.xlsx')
     
-    excel_path = (f'{new_dir}/{network_name}_{network_version}_{network_state}.xlsx')
+    # if not os.path.exists(excel_path):
+    #     wb = openpyxl.workbook.Workbook()
+    #     wb.save(excel_path)
     
-    if not os.path.exists(excel_path):
-        wb = openpyxl.workbook.Workbook()
-        wb.save(excel_path)
+    # book = openpyxl.load_workbook(excel_path)
+    # writer = pd.ExcelWriter(excel_path, engine='openpyxl')
+    # writer.book = book
+    # startrow = 1
     
-    book = openpyxl.load_workbook(excel_path)
-    writer = pd.ExcelWriter(excel_path, engine='openpyxl')
-    writer.book = book
-    startrow = 1
-    
-    node_labels = str(subsystem.indices2nodes(nodes))
-    translator = str.maketrans('', '', string.punctuation)
-    sheet_name_no_punct = node_labels.translate(translator)
-    sheet_name = (f"{sheet_name_no_punct.replace(' ','')}_{orders}")
+    # node_labels = str(subsystem.indices2nodes(nodes))
+    # translator = str.maketrans('', '', string.punctuation)
+    # sheet_name_no_punct = node_labels.translate(translator)
+    # sheet_name = (f"{sheet_name_no_punct.replace(' ','')}_{orders}")
         
     mechanisms = [subset for subset in pyphi.utils.powerset(nodes) 
               if len(subset) in orders]
     
-    for mechanism in tqdm_notebook(mechanisms):
+    for mechanism in mechanisms:
+        print(mechanism)
         concept = subsystem.concept(mechanism)
         print(mechanism, concept.phi)
         if concept.phi > phi_lower_bound:
-            C = concept2pickle(concept)
+            C = concept2pickle(concept, new_dir_dict)
             concept_label = str(concept.subsystem.indices2nodes(concept.mechanism))
             translator = str.maketrans('', '', string.punctuation)
             concept_name_no_punct = concept_label.translate(translator)
             concept_name = concept_name_no_punct.replace(' ','')
             
-            pickled_concept = pd.read_pickle(f"{new_dir}/{network_name}_{network_version}_{network_state}_{concept_name}.file")
+            pickled_concept = pd.read_pickle(f"{new_dir_dict['directory']}/{new_dir_dict['prefix']}_{concept_name}.file")
             
-            with open(f"{new_dir}/{network_name}_{network_version}_{network_state}_{concept_name}.txt", "w") as text_file:
+            with open(f"{new_dir_dict['directory']}/{new_dir_dict['prefix']}_{concept_name}.txt", "w") as text_file:
                 print(pickled_concept, file=text_file)
                
-            writer.sheets = dict((ws.title, ws) for ws in book.worksheets)
-            row = DataFrame(concept2row(concept)).transpose()
-            row.to_excel(writer, (f'{sheet_name}'), startrow=startrow, index=False, header=None)
-            startrow += 1
-            writer.save()
+            # writer.sheets = dict((ws.title, ws) for ws in book.worksheets)
+            # row = DataFrame(concept2row(concept)).transpose()
+            # row.to_excel(writer, (f'{sheet_name}'), startrow=startrow, index=False, header=None)
+            # startrow += 1
+            # writer.save()
 
 
 # In[58]:
@@ -146,4 +153,3 @@ phi, partitioned_repertoire = subsystem.evaluate_partition(Direction.CAUSE, mech
 print(phi)
 print(partitioned_repertoire)
 '''
-
