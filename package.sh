@@ -57,4 +57,5 @@ make
 make install
 
 echo "export PATH=${HOME}/cctools/bin:$PATH" >> ~/.bashrc
+echo "export PYTHONPATH=${HOME}/cctools/lib/python3.6/site-packages/" >> ~/.bashrc
 source ~/.bashrc
