@@ -4,7 +4,7 @@ import pyphi
 
 if __name__ == "__main__":
     
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print('Error, incorrect number of arguments')
         sys.exit(1)
 
@@ -18,7 +18,8 @@ if __name__ == "__main__":
     mechanism = tuple(int(n) for n in mechanism_str.split(','))
     print(mechanism)
 
-    with open('{}.out'.format(mechanism_str), 'wb') as f:
+    outfile = sys.argv[3]
+    with open(outfile, 'wb') as f:
         concept = subsystem.concept(mechanism)
         pickle.dump(concept, f)
 

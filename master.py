@@ -26,6 +26,19 @@ PORT = 10001
 #    condor_submit_worker -N PROJECT_NAME 10   (10 distributed workers)
 
 
+def to_secs(mcs):
+    """Convert microseconds to seconds."""
+    return "{:.2f}".format(mcs / (10 ** 6))
+
+
+def outfile(mechanism):
+    return "{}.out".format(mechanism_to_str(mechanism))
+
+
+def mechanism_to_str(mechanism):
+    return ','.join(str(n) for n in mechanism)
+
+
 if __name__ == '__main__':
 
     network = pyphi.examples.basic_network()
@@ -33,10 +46,17 @@ if __name__ == '__main__':
     with open(network_pickle, 'wb') as f:
         pickle.dump(network, f)
 
-    miniconda = os.path.abspath('miniconda.tar.gz')
-    if not os.path.exists(miniconda):
-        print('Miniconda not found')
-        sys.exit(1)
+    input_files = [
+        'miniconda.tar.gz',
+        'worker.sh',
+        'worker.py',
+        network_pickle,
+     ]
+    
+    for filename in input_files:
+        if not os.path.exists(filename):
+            print(f'Input file {filename} not found')
+            sys.exit(1)
 
     try:
         q = WorkQueue(PORT)
@@ -57,34 +77,26 @@ if __name__ == '__main__':
 
     print("Listening on port %d..." % q.port)
 
-    def _outfile(mechanism):
-        return "{}.out".format(mechanism)
-
-    def mechanism_to_str(mechanism):
-        return ','.join(str(n) for n in mechanism)
-
     for mechanism in pyphi.utils.powerset((0, 1), nonempty=True):
         
-        outfile = _outfile(mechanism_to_str(mechanism))
-        command = "sh worker.sh {} {}".format(network_pickle, mechanism_to_str(mechanism))
+        command = "sh worker.sh {} {} {}".format(
+            network_pickle, 
+            mechanism_to_str(mechanism),
+            outfile(mechanism))
+
         t = Task(command)
-        t.extra = 'bo'
         t.mechanism = mechanism
 
         # Note that when specifying a file, we have to name its local name
-        # (e.g. gzip_path), and its remote name (e.g. "gzip"). Unlike the
-        # following line, more often than not these are the same.
-        t.specify_input_file('worker.sh', 'worker.sh', cache=True)
-        t.specify_input_file('worker.py', 'worker.py', cache=True)
-        t.specify_input_file(miniconda, "miniconda.tar.gz", cache=True)
-        t.specify_input_file(network_pickle, network_pickle, cache=True)
+        # (e.g. gzip_path), and its remote name (e.g. "gzip"). These are
+        # usually the same.
+        for filename in input_files:
+            t.specify_input_file(filename, filename, cache=True)
 
-        # files to be compressed are different across all tasks, so we do not
-        # cache them. This is, of course, application specific. Sometimes you may
-        # want to cache an output file if is the input of a later task.
-        t.specify_output_file(outfile, outfile, cache=False)
+        # Output files are typically not cached
+        t.specify_output_file(outfile(mechanism), outfile(mechanism), cache=False)
 
-        # Once all files has been specified, we are ready to submit the task to the queue.
+        # Submit the task
         taskid = q.submit(t)
         print("Submitted task (id# %d): %s" % (taskid, t.command))
 
@@ -96,18 +108,12 @@ if __name__ == '__main__':
         if not t:
             continue
 
-        assert t.extra == 'bo'
         print('Task', t.mechanism, 'complete')
-        
-        def to_secs(mcs):
-            """Convert microseconds to seconds."""
-            return "{:.2f}".format(mcs / (10 ** 6))
-        
         print(' Input transfer time:', to_secs(t.send_input_finish - t.send_input_start))
         print(' Execution time:', to_secs(t.execute_cmd_finish - t.execute_cmd_start))
         print(' Output transfer time:', to_secs(t.receive_output_finish - t.receive_output_start))
 
-        with open(_outfile(mechanism_to_str(t.mechanism)), 'rb') as f:
+        with open(outfile(t.mechanism), 'rb') as f:
             concept = pickle.load(f)
             print('Result', concept)
 
