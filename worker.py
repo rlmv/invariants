@@ -1,24 +1,39 @@
+
+"""
+PyPhi Worker (for Work Queue)
+
+Usage:
+  worker.py <network> <state> <mechanism> <outfile>
+
+Options:
+  -h --help     Show this screen.
+"""
+
 import sys
 import pickle
 import pyphi
+from docopt import docopt
+
+
+def str_to_mechanism(s):
+    return tuple(int(n) for n in s.split(','))
+
 
 if __name__ == "__main__":
-    
-    if len(sys.argv) != 4:
-        print('Error, incorrect number of arguments')
-        sys.exit(1)
+    arguments = docopt(__doc__)
+    network_file = arguments['<network>']
+    state = str_to_mechanism(arguments['<state>'])
+    mechanism = str_to_mechanism(arguments['<mechanism>'])
+    outfile = arguments['<outfile>']
 
-    network_file = sys.argv[1]
+    pyphi.config.MEASURE = 'BLD'
+    pyphi.config.CACHE_REPERTOIRES = False
+
     with open(network_file, 'rb') as f:
         network = pickle.load(f)
 
-    subsystem = pyphi.Subsystem(network, (0, 0, 0))
+    subsystem = pyphi.Subsystem(network, (0,) * len(network))
 
-    mechanism_str = sys.argv[2]
-    mechanism = tuple(int(n) for n in mechanism_str.split(','))
-    print(mechanism)
-
-    outfile = sys.argv[3]
     with open(outfile, 'wb') as f:
         concept = subsystem.concept(mechanism)
         pickle.dump(concept, f)

@@ -7,10 +7,12 @@
 
 from work_queue import *
 
+
 import os
 import sys
 import pickle
 import pyphi
+from time import time
 
 # Name for the project (for catalog server)
 PROJECT_NAME = 'invariants'
@@ -31,6 +33,14 @@ def to_secs(mcs):
     return "{:.2f}".format(mcs / (10 ** 6))
 
 
+def hms(sec_elapsed):
+    """Convert seconds to hours-minutes-seconds."""
+    h = int(sec_elapsed / (60 * 60))
+    m = int((sec_elapsed % (60 * 60)) / 60)
+    s = sec_elapsed % 60
+    return "{}:{:>02}:{:>02.0f}".format(h, m, s)
+
+
 def outfile(mechanism):
     return "{}.out".format(mechanism_to_str(mechanism))
 
@@ -40,11 +50,15 @@ def mechanism_to_str(mechanism):
 
 
 if __name__ == '__main__':
+    
+    start_time = time()
+    # network = pyphi.examples.basic_network()
+    # network_pickle = 'basic.pickle'
+    # with open(network_pickle, 'wb') as f:
+    #     pickle.dump(network, f)
 
-    network = pyphi.examples.basic_network()
-    network_pickle = 'basic.pickle'
-    with open(network_pickle, 'wb') as f:
-        pickle.dump(network, f)
+    network_pickle = 'largepyr_1.0_alloff/largepyr_1.0_alloff_network.pickle'
+    state = (0,) * 20
 
     input_files = [
         'miniconda.tar.gz',
@@ -65,7 +79,7 @@ if __name__ == '__main__':
         sys.exit(1)
     
     # Enable debug logging
-#    cctools_debug_flags_set("all")
+        #cctools_debug_flags_set("all")
 
     # Identify our master via a catalog server
     # so we can past `-N PROJECT_NAME` to condor_submit_worker
@@ -73,14 +87,16 @@ if __name__ == '__main__':
     q.specify_name(PROJECT_NAME)
     
     # TODO: enable password file
-    # q.specify_password_file('password_file')
+    q.specify_password_file('password_file')
 
     print("Listening on port %d..." % q.port)
 
-    for mechanism in pyphi.utils.powerset((0, 1), nonempty=True):
-        
-        command = "sh worker.sh {} {} {}".format(
+    for node in range(20):
+        mechanism = (node,)
+
+        command = "sh worker.sh {} {} {} {}".format(
             network_pickle, 
+            mechanism_to_str(state),
             mechanism_to_str(mechanism),
             outfile(mechanism))
 
@@ -123,4 +139,4 @@ if __name__ == '__main__':
             sys.exit(1)
 
     print("Done")
-    sys.exit(0)
+    print("Total execution time: {}".format(hms(time() - start_time)))

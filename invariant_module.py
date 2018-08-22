@@ -25,6 +25,7 @@ from pathlib import Path
 
 # In[2]:
 
+df_output_value = 0.95
 
 def concept2row(concept):
     """Convert a concept into a Pandas Series."""
@@ -134,7 +135,7 @@ def modulate_output(gate_output, modulation_states, modulation_weights=None):
 # In[5]:
 
 
-def find_le_index_by_label(on_nodes):
+def find_le_index_by_label(on_nodes, n_nodes, node_labels):
     """Return the le index of the state where nodes in on_nodes are on
     
     Args:
@@ -146,7 +147,7 @@ def find_le_index_by_label(on_nodes):
         temp[i] = 1
     return pyphi.convert.s2l(tuple(temp))
 
-def find_label_by_le_index(index):
+def find_label_by_le_index(index, n_nodes):
     """Return a list of nodes that are on in the input state
     
     Args:
@@ -219,7 +220,7 @@ def behavior(test_index, time=30, iteration=50, fix=True):
 # In[8]:
 
 
-def find_blanket(node):
+def find_blanket(node, n_nodes, input_indices, modulation_indices, all_weights):
     parents = input_indices[node] + modulation_indices[node]
     children = []
     parents_of_children = []
@@ -230,17 +231,17 @@ def find_blanket(node):
         parents_of_children = parents_of_children + input_indices[c] + modulation_indices[c]
     return list(set(parents + children + parents_of_children))
 
-def find_markov_blankets(relevant_nodes):
+def find_markov_blankets(relevant_nodes, n_nodes, input_indices, modulation_indices, all_weights):
     markov_blankets = {}
     for node in relevant_nodes:
-        markov_blankets[node] = find_blanket(node)
+        markov_blankets[node] = find_blanket(node, n_nodes,input_indices, modulation_indices, all_weights)
     return markov_blankets
 
 
 # In[1]:
 
 
-def built_tpm_for_subsys(relevant_nodes, markov_blankets):
+def built_tpm_for_subsys(relevant_nodes, markov_blankets, input_indices, modulation_indices, all_weights, gate_types, df_output_value):
     
     """Return a multidimensional state-by-node TPM of a subsystem, conditioning external nodes to OFF
     

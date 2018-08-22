@@ -3,9 +3,8 @@
 
 # In[14]:
 
-
-get_ipython().run_line_magic('run', '"~/IIT/pyphi/invariant_module.ipynb"')
-get_ipython().run_line_magic('run', '"~/IIT/pyphi/pickling_concepts_code.ipynb"')
+from pickling_concepts_code import *
+from invariant_module import *
 
 
 # ## Connectivity matrix and connection weights
@@ -53,7 +52,7 @@ gc = 0.02 # grid lateral connection
 sg = 1 # grid self-connection
 sc = 0.01 # default self-connection
 all_weights = np.array([
-    [sg, gc, 0, 0, 0, 0, 0, 0, gc, 0, 0, 0, 0, 0, 0, bc, 0, 0, 0, 0, ei, 0, 0, 0, 0, 0, 0, 0], # A
+   [sg, gc, 0, 0, 0, 0, 0, 0, gc, 0, 0, 0, 0, 0, 0, bc, 0, 0, 0, 0, ei, 0, 0, 0, 0, 0, 0, 0], # A
     [gc, sg, gc, 0, 0, 0, 0, 0, gc, gc, 0, 0, 0, 0, 0, bc, 0, 0, 0, 0, 0, ei, 0, 0, 0, 0, 0, 0], # B
     [0, gc, sg, gc, 0, 0, 0, 0, 0, gc, gc, 0, 0, 0, 0, 0, bc, 0, 0, 0, 0, 0, ei, 0, 0, 0, 0, 0], # C
     [0, 0, gc, sg, gc, 0, 0, 0, 0, 0, gc, gc, 0, 0, 0, 0, bc, 0, 0, 0, 0, 0, 0, ei, 0, 0, 0, 0], # D
@@ -177,6 +176,7 @@ gate_types = [
     "M2", # M
     "M2", # N
     "M2", # O
+
     "M1", # P
     "M1", # Q
     "M1", # R
@@ -196,31 +196,31 @@ gate_types = [
 # In[8]:
 
 
-layers = [
-    ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
-    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
-    ['I', 'J', 'K', 'L', 'M', 'N', 'O'],
-    ['P', 'Q', 'R', 'S'],
-    ['T']
-]
+# layers = [
+#     ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+#     ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+#     ['I', 'J', 'K', 'L', 'M', 'N', 'O'],
+#     ['P', 'Q', 'R', 'S'],
+#     ['T']
+# ]
 
-test_state = ['a', 'g']
-test_index = find_le_index_by_label(test_state)
+# test_state = ['a', 'g']
+# test_index = find_le_index_by_label(test_state, n_nodes)
 
-data = behavior(test_index)  
-fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(ncols=len(layers), sharey=True, figsize=(18, 12))
-ax_list = fig.axes
-gs = gridspec.GridSpec(1, 5, width_ratios=[len(layer) for layer in layers])
-c = None
-for l in range(len(layers)):
-    partial_data = data.loc[:, layers[l][0]:layers[l][-1]]
-    ax_list[l] = plt.subplot(gs[l])
-    c = ax_list[l].pcolor(partial_data)
-    ax_list[l].set_xticks(np.arange(partial_data.shape[1]) + 0.5, minor=False)
-    ax_list[l].set_xticklabels(partial_data.columns)
+# data = behavior(test_index)  
+# fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(ncols=len(layers), sharey=True, figsize=(18, 12))
+# ax_list = fig.axes
+# gs = gridspec.GridSpec(1, 5, width_ratios=[len(layer) for layer in layers])
+# c = None
+# for l in range(len(layers)):
+#     partial_data = data.loc[:, layers[l][0]:layers[l][-1]]
+#     ax_list[l] = plt.subplot(gs[l])
+#     c = ax_list[l].pcolor(partial_data)
+#     ax_list[l].set_xticks(np.arange(partial_data.shape[1]) + 0.5, minor=False)
+#     ax_list[l].set_xticklabels(partial_data.columns)
 
-cbaxes = fig.add_axes([0.98, 0.12, 0.01, 0.2]) 
-fig.colorbar(c, cax = cbaxes)
+# cbaxes = fig.add_axes([0.98, 0.12, 0.01, 0.2]) 
+# fig.colorbar(c, cax = cbaxes)
 # fig.colorbar(c, pad=0.1)
 
 
@@ -230,8 +230,8 @@ fig.colorbar(c, cax = cbaxes)
 
 
 relevant_nodes = [i for i in range(n_nodes-8)]
-markov_blankets = find_markov_blankets(relevant_nodes)
-tpm = built_tpm_for_subsys(relevant_nodes, markov_blankets)
+markov_blankets = find_markov_blankets(relevant_nodes, n_nodes, input_indices, modulation_indices, all_weights)
+tpm = built_tpm_for_subsys(relevant_nodes, markov_blankets, input_indices, modulation_indices, all_weights, gate_types, df_output_value)
 
 
 # In[10]:
