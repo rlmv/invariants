@@ -12,9 +12,18 @@ import sys
 import pickle
 import pyphi
 
+# Name for the project (for catalog server)
 PROJECT_NAME = 'invariants'
 # It seems like we have to use ports > 10000 on HTCondor
 PORT = 10001
+
+# To start the master:
+#    python master.py 
+# 
+# To start the worker:
+#    work_queue_worker -N PROJECT_NAME  (local)
+# or
+#    condor_submit_worker -N PROJECT_NAME 10   (10 distributed workers)
 
 
 if __name__ == '__main__':
