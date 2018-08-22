@@ -54,9 +54,8 @@ if __name__ == '__main__':
     def mechanism_to_str(mechanism):
         return ','.join(str(n) for n in mechanism)
 
-    for i in range(1, 2):
-
-        mechanism = (i,)
+    for mechanism in pyphi.utils.powerset((0, 1), nonempty=True):
+        
         outfile = _outfile(mechanism_to_str(mechanism))
         command = "sh worker.sh {} {}".format(network_pickle, mechanism_to_str(mechanism))
         t = Task(command)
@@ -90,6 +89,14 @@ if __name__ == '__main__':
 
         assert t.extra == 'bo'
         print('Task', t.mechanism, 'complete')
+        
+        def to_secs(mcs):
+            """Convert microseconds to seconds."""
+            return "{:.2f}".format(mcs / (10 ** 6))
+        
+        print(' Input transfer time:', to_secs(t.send_input_finish - t.send_input_start))
+        print(' Execution time:', to_secs(t.execute_cmd_finish - t.execute_cmd_start))
+        print(' Output transfer time:', to_secs(t.receive_output_finish - t.receive_output_start))
 
         with open(_outfile(mechanism_to_str(t.mechanism)), 'rb') as f:
             concept = pickle.load(f)
