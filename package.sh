@@ -43,6 +43,7 @@ chmod +x $MINICONDA_INSTALLER
 
 # TODO: ensure miniconda is added to PATH
 
+# Install requirements into miniconda
 pip install -r requirements.txt
 
 tar -cvf miniconda.tar.gz $MINICONDA_BUILD

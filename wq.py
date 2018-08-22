@@ -9,19 +9,26 @@ from work_queue import *
 
 import os
 import sys
+import pickle
+import pyphi
 
 PROJECT_NAME = 'invariants'
+# It seems like we have to use ports > 10000 on HTCondor
 PORT = 10001
 
-# Main program
+
 if __name__ == '__main__':
+
+    network = pyphi.examples.basic_network()
+    network_pickle = 'basic.pickle'
+    with open(network_pickle, 'wb') as f:
+        pickle.dump(network, f)
 
     miniconda = os.path.abspath('miniconda.tar.gz')
     if not os.path.exists(miniconda):
         print('Miniconda not found')
         sys.exit(1)
 
-    # It seems like we have to use ports > 10000 on HTCondor
     try:
         q = WorkQueue(PORT)
     except:
@@ -41,13 +48,20 @@ if __name__ == '__main__':
 
     print("Listening on port %d..." % q.port)
 
-    for i in range(1, 2):
-        outfile = "{}.out".format(i)
+    def _outfile(mechanism):
+        return "{}.out".format(mechanism)
 
-        command = "sh worker.sh {}".format(i)
+    def mechanism_to_str(mechanism):
+        return ','.join(str(n) for n in mechanism)
+
+    for i in range(1, 2):
+
+        mechanism = (i,)
+        outfile = _outfile(mechanism_to_str(mechanism))
+        command = "sh worker.sh {} {}".format(network_pickle, mechanism_to_str(mechanism))
         t = Task(command)
         t.extra = 'bo'
-        t.mechanism = i
+        t.mechanism = mechanism
 
         # Note that when specifying a file, we have to name its local name
         # (e.g. gzip_path), and its remote name (e.g. "gzip"). Unlike the
@@ -55,6 +69,7 @@ if __name__ == '__main__':
         t.specify_input_file('worker.sh', 'worker.sh', cache=True)
         t.specify_input_file('worker.py', 'worker.py', cache=True)
         t.specify_input_file(miniconda, "miniconda.tar.gz", cache=True)
+        t.specify_input_file(network_pickle, network_pickle, cache=True)
 
         # files to be compressed are different across all tasks, so we do not
         # cache them. This is, of course, application specific. Sometimes you may
@@ -63,19 +78,27 @@ if __name__ == '__main__':
 
         # Once all files has been specified, we are ready to submit the task to the queue.
         taskid = q.submit(t)
-        print("submitted task (id# %d): %s" % (taskid, t.command))
+        print("Submitted task (id# %d): %s" % (taskid, t.command))
 
-    print("waiting for tasks to complete...")
+    print("Waiting for tasks to complete...")
     while not q.empty():
-        t = q.wait(5)
-        
-        if t:
-            assert t.extra == 'bo'
 
-            print("task (id# %d) complete: %s (return code %d)" % (t.id, t.command, t.return_status))
-            if t.return_status != 0:
-                raise ValueError(
-                    'return_status: %s\noutput: %s', t.return_status, t.output)
+        # Task ready?
+        t = q.wait(5)
+        if not t:
+            continue
+
+        assert t.extra == 'bo'
+        print('Task', t.mechanism, 'complete')
+
+        with open(_outfile(mechanism_to_str(t.mechanism)), 'rb') as f:
+            concept = pickle.load(f)
+            print('Result', concept)
+
+        if t.return_status != 0:
+            print(t.output)
+            print('ERROR:', t.return_status)
+            sys.exit(1)
 
     print("Done")
     sys.exit(0)
