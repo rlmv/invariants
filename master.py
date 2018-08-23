@@ -13,6 +13,7 @@ import sys
 import pickle
 import pyphi
 from time import time
+from utils import Experiment
 
 # Name for the project (for catalog server)
 PROJECT_NAME = 'invariants'
@@ -30,7 +31,7 @@ PORT = 10001
 
 def to_secs(mcs):
     """Convert microseconds to seconds."""
-    return "{:.2f}".format(mcs / (10 ** 6))
+    return mcs / (10 ** 6)
 
 
 def hms(sec_elapsed):
@@ -41,12 +42,16 @@ def hms(sec_elapsed):
     return "{}:{:>02}:{:>02.0f}".format(h, m, s)
 
 
-def outfile(mechanism):
+def _outfile(mechanism):
     return "{}.out".format(mechanism_to_str(mechanism))
 
 
 def mechanism_to_str(mechanism):
     return ','.join(str(n) for n in mechanism)
+
+
+def mechanism_to_labels(network, mechanism):
+    return ''.join(network.node_labels.indices2labels(mechanism))
 
 
 if __name__ == '__main__':
@@ -57,14 +62,26 @@ if __name__ == '__main__':
     # with open(network_pickle, 'wb') as f:
     #     pickle.dump(network, f)
 
-    network_pickle = 'largepyr_1.0_alloff/largepyr_1.0_alloff_network.pickle'
     state = (0,) * 20
+    elements = list(range(20))
+    mechanisms = [[x] for x in elements] + pyphi.utils.combs(elements, 2).tolist()
+    network = None
+    experiment = Experiment('largepyr', '2.1', network, state)
+
+    with open(experiment.network_file, 'rb') as f:
+        network = pickle.load(f)
+
+    def outfile(mechanism):
+        return "{}.pickle".format(mechanism_to_labels(network, mechanism))
+
+    def local_outfile(mechanism):
+        return os.path.join(experiment.directory, outfile(mechanism))
 
     input_files = [
         'miniconda.tar.gz',
         'worker.sh',
         'worker.py',
-        network_pickle,
+        experiment.network_file
      ]
     
     for filename in input_files:
@@ -91,14 +108,14 @@ if __name__ == '__main__':
 
     print("Listening on port %d..." % q.port)
 
-    for node in range(20):
-        mechanism = (node,)
+    for mechanism in mechanisms:
+        remote_outfile = outfile(mechanism)
 
         command = "sh worker.sh {} {} {} {}".format(
-            network_pickle, 
+            experiment.network_file,
             mechanism_to_str(state),
             mechanism_to_str(mechanism),
-            outfile(mechanism))
+            remote_outfile)
 
         t = Task(command)
         t.mechanism = mechanism
@@ -110,11 +127,11 @@ if __name__ == '__main__':
             t.specify_input_file(filename, filename, cache=True)
 
         # Output files are typically not cached
-        t.specify_output_file(outfile(mechanism), outfile(mechanism), cache=False)
+        t.specify_output_file(local_outfile(mechanism), remote_outfile, cache=False)
 
         # Submit the task
         taskid = q.submit(t)
-        print("Submitted task (id# %d): %s" % (taskid, t.command))
+        print(f"Submitted task {mechanism}, id={t.id}, command='{command}'")
 
     print("Waiting for tasks to complete...")
     while not q.empty():
@@ -125,11 +142,12 @@ if __name__ == '__main__':
             continue
 
         print('Task', t.mechanism, 'complete')
-        print(' Input transfer time:', to_secs(t.send_input_finish - t.send_input_start))
-        print(' Execution time:', to_secs(t.execute_cmd_finish - t.execute_cmd_start))
-        print(' Output transfer time:', to_secs(t.receive_output_finish - t.receive_output_start))
-
-        with open(outfile(t.mechanism), 'rb') as f:
+        print( 'Result code', t.result)
+        print( 'Status code', t.return_status)
+        print(' Input transfer time:', hms(to_secs(t.send_input_finish - t.send_input_start)))
+        print(' Execution time:', hms(to_secs(t.execute_cmd_finish - t.execute_cmd_start)))
+        print(' Output transfer time:', hms(to_secs(t.receive_output_finish - t.receive_output_start)))
+        with open(local_outfile(t.mechanism), 'rb') as f:
             concept = pickle.load(f)
             print('Result', concept)
 

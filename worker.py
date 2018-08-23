@@ -32,10 +32,11 @@ if __name__ == "__main__":
     with open(network_file, 'rb') as f:
         network = pickle.load(f)
 
-    subsystem = pyphi.Subsystem(network, (0,) * len(network))
+    subsystem = pyphi.Subsystem(network, state)
 
     with open(outfile, 'wb') as f:
         concept = subsystem.concept(mechanism)
+        concept.subsystem = None  # Otherwise we transfer a lot of extra data
         pickle.dump(concept, f)
 
     

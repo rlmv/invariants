@@ -35,18 +35,24 @@ set -x
 # # Cleanup
 # rm -rf $PYTHON_SOURCE $PYTHON_TARBALL $PYTHON_BUILD
 
+
+
 MINICONDA_INSTALLER=miniconda.sh
-MINICONDA_BUILD=$HOME/miniconda
+MINICONDA_BUILD=miniconda
+MINICONDA_TARBALL=miniconda.tar.gz
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $MINICONDA_INSTALLER
 chmod +x $MINICONDA_INSTALLER
-./$MINICONDA_INSTALLER -p $MINICONDA_BUILD
+./$MINICONDA_INSTALLER -p $HOME/$MINICONDA_BUILD
 
 # TODO: ensure miniconda is added to PATH
 
 # Install requirements into miniconda
 pip install -r requirements.txt
 
-tar -cvf miniconda.tar.gz $MINICONDA_BUILD
+CURRENT=`pwd`
+cd $HOME && tar -cvf $MINICONDA_TARBALL $MINICONDA_BUILD
+mv $MINICONDA_TARBALL $CURRENT
+cd $CURRENT
 
 # Install CC Tools (WorkQueue)
 CCTOOLS_NAME=cctools-7.0.3-source

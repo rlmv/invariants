@@ -20,8 +20,7 @@ class Experiment:
     
     @property
     def directory(self):
-        curr_dir = os.getcwd()
-        return os.path.join(curr_dir, self.prefix)
+        return self.prefix
 
     @property
     def experiment_file(self):
