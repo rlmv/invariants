@@ -98,7 +98,7 @@ if __name__ == '__main__':
     mechanisms = itertools.chain(
         mechanisms_for_order(elements, 1),
         mechanisms_for_order(elements, 2),
-        mechanisms_for_order(elements, 3)[:100]
+        mechanisms_for_order(elements, 3)
     )
 
     experiment = Experiment('largepyr', '2.1', None, state)

@@ -36,7 +36,14 @@ if __name__ == "__main__":
 
     with open(outfile, 'wb') as f:
         concept = subsystem.concept(mechanism)
-        concept.subsystem = None  # Otherwise we transfer a lot of extra data
+
+        # Remove extra data
+        concept.subsystem = None  
+        concept.cause.ria._repertoire = None
+        concept.cause.ria._partitioned_repertoire = None
+        concept.effect.ria._repertoire = None
+        concept.effect.ria._partitioned_repertoire = None
+
         pickle.dump(concept, f)
 
     
