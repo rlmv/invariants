@@ -7,7 +7,7 @@
 
 from work_queue import *
 
-
+import itertools
 import os
 import sys
 import pickle
@@ -19,6 +19,7 @@ from utils import Experiment
 PROJECT_NAME = 'invariants'
 # We have to use ports > 10000 on HTCondor
 PORT = 10001
+PASSWORD_FILE = 'password_file'
 
 # To start the master:
 #
@@ -36,17 +37,17 @@ PORT = 10001
 # sufficient for PyPhi tasks. The network and subsystem TPMs are already
 # 160 MB each for a 20-node network.
 #
-# 
-# Runtime:
+# Runtime for a 20-node network: 
 #
-# For a 20-node  network, 
+#  order  mins
 # +-----+------+
-# | 1st| 4-6  |
+# | 1st | 4-6  |
 # +-----+------+
-# | 2nd| 6-12|
+# | 2nd | 6-12 |
 # +-----+------+
 # |     |      |
-# +-----+------+# to compute.
+# +-----+------+
+
 
 def to_secs(mcs):
     """Convert microseconds to seconds."""
@@ -90,12 +91,18 @@ if __name__ == '__main__':
 
     state = (0,) * 20
     elements = list(range(20))
-    mechanisms = [[x] for x in elements] + pyphi.utils.combs(elements, 2).tolist()
-    network = None
-    experiment = Experiment('largepyr', '2.1', network, state)
+    
+    def mechanisms_for_order(elements, n):
+        return pyphi.utils.combs(elements, n).tolist()
 
-    with open(experiment.network_file, 'rb') as f:
-        network = pickle.load(f)
+    mechanisms = itertools.chain(
+        mechanisms_for_order(elements, 1),
+        mechanisms_for_order(elements, 2),
+        mechanisms_for_order(elements, 3)[:100]
+    )
+
+    experiment = Experiment('largepyr', '2.1', None, state)
+    network = load_pickle(experiment.network_file)
 
     def outfile(mechanism):
         return "{}.pickle".format(mechanism_to_labels(network, mechanism))
@@ -115,22 +122,19 @@ if __name__ == '__main__':
             print(f'Input file {filename} not found')
             sys.exit(1)
 
-    try:
-        q = WorkQueue(PORT)
-    except:
-        print("Instantiation of Work Queue failed!")
-        sys.exit(1)
+    q = WorkQueue(PORT)
     
     # Enable debug logging
-        #cctools_debug_flags_set("all")
+    # cctools_debug_flags_set("all")
 
     # Identify our master via a catalog server
-    # so we can past `-N PROJECT_NAME` to condor_submit_worker
+    # so we can pass `-N PROJECT_NAME` to condor_submit_worker
     q.specify_master_mode(WORK_QUEUE_MASTER_MODE_CATALOG)
     q.specify_name(PROJECT_NAME)
     
-    # TODO: enable password file
-    q.specify_password_file('password_file')
+    # Enable password file
+    # TODO: make this optional?
+    q.specify_password_file(PASSWORD_FILE)
 
     print("Listening on port %d..." % q.port)
 
