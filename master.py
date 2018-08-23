@@ -27,11 +27,11 @@ PASSWORD_FILE = 'password_file'
 # 
 # To start a local worker:
 #
-#    work_queue_worker -N PROJECT_NAME  
+#    work_queue_worker -N PROJECT_NAME -P PASSWORD_FILE
 #
 # or 10 distributed workers on Condor:
 #
-#    condor_submit_worker -N PROJECT_NAME --memory 2048 10
+#    condor_submit_workers -N PROJECT_NAME -P PASSWORD_FILE --memory 2048 10
 #
 # Be sure to increase the memory allocation! Default is 512 MB, which is not
 # sufficient for PyPhi tasks. The network and subsystem TPMs are already
