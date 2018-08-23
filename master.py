@@ -17,17 +17,36 @@ from utils import Experiment
 
 # Name for the project (for catalog server)
 PROJECT_NAME = 'invariants'
-# It seems like we have to use ports > 10000 on HTCondor
+# We have to use ports > 10000 on HTCondor
 PORT = 10001
 
 # To start the master:
+#
 #    python master.py 
 # 
-# To start the worker:
-#    work_queue_worker -N PROJECT_NAME  (local)
-# or
-#    condor_submit_worker -N PROJECT_NAME 10   (10 distributed workers)
-
+# To start a local worker:
+#
+#    work_queue_worker -N PROJECT_NAME  
+#
+# or 10 distributed workers on Condor:
+#
+#    condor_submit_worker -N PROJECT_NAME --memory 2048 10
+#
+# Be sure to increase the memory allocation! Default is 512 MB, which is not
+# sufficient for PyPhi tasks. The network and subsystem TPMs are already
+# 160 MB each for a 20-node network.
+#
+# 
+# Runtime:
+#
+# For a 20-node  network, 
+# +-----+------+
+# | 1st| 4-6  |
+# +-----+------+
+# | 2nd| 6-12|
+# +-----+------+
+# |     |      |
+# +-----+------+# to compute.
 
 def to_secs(mcs):
     """Convert microseconds to seconds."""
@@ -54,7 +73,14 @@ def mechanism_to_labels(network, mechanism):
     return ''.join(network.node_labels.indices2labels(mechanism))
 
 
+def load_pickle(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
+
+
 if __name__ == '__main__':
+
+    pyphi.config.REPR_VERBOSITY = 1
     
     start_time = time()
     # network = pyphi.examples.basic_network()
@@ -109,7 +135,13 @@ if __name__ == '__main__':
     print("Listening on port %d..." % q.port)
 
     for mechanism in mechanisms:
+        mechanism = tuple(mechanism)
+
         remote_outfile = outfile(mechanism)
+
+        if os.path.exists(local_outfile(mechanism)):
+            print(local_outfile(mechanism), 'exists. Skipping mechanism', mechanism_to_str(mechanism))
+            continue
 
         command = "sh worker.sh {} {} {} {}".format(
             experiment.network_file,
