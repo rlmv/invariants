@@ -103,14 +103,15 @@ if __name__ == '__main__':
 
     mechanisms = itertools.chain(
         mechanisms_for_order(elements, 1),
-        mechanisms_for_order(elements, 2),
-        mechanisms_for_order(elements, 3),
-        fourth
+        # mechanisms_for_order(elements, 2),
+        # mechanisms_for_order(elements, 3),
+        # fourth
     )
     
     # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
 
+    start_worker_factory(experiment, PROJECT_NAME, PASSWORD_FILE)
     start_master(experiment, mechanisms, state, PROJECT_NAME, PORT, PASSWORD_FILE)
 
 
@@ -118,8 +119,9 @@ def start_worker_factory(experiment, project_name, password_file):
     """
     Start a `work_queue_factory` that dynamically manages workers.
     """
-    log_file = open(f'{project_name}.factory.out')
-
+    log_file = open(f'{project_name}.factory.out', 'w+')
+    
+    print('Starting worker factory...')
     factory = subprocess.Popen(['work_queue_factory', 
                                 '--master-name', project_name, 
                                 '--password', password_file, 
@@ -130,6 +132,7 @@ def start_worker_factory(experiment, project_name, password_file):
                                 '--workers-per-cycle', '10'],
                                stdout=log_file,
                                stderr=log_file)
+    print('Done.')
 
 
 def start_master(experiment, mechanisms, state, project_name, port, password_file):
