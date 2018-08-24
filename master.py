@@ -22,6 +22,7 @@ PROJECT_NAME = 'invariants'
 # We have to use ports > 10000 on HTCondor
 PORT = 10002
 PASSWORD_FILE = 'password_file'
+LOG_FILE = f'{PROJECT_NAME}.log'
 
 # To start the master:
 #
@@ -132,6 +133,7 @@ if __name__ == '__main__':
     
     # Enable debug logging
     # cctools_debug_flags_set("all")
+    q.specify_log(LOG_FILE)
 
     # Identify our master via a catalog server
     # so we can pass `-N PROJECT_NAME` to condor_submit_worker
@@ -186,18 +188,18 @@ if __name__ == '__main__':
 
         print('Task', t.mechanism, 'complete')
         print( 'Result code', t.result)
-        print( 'Status code', t.return_status)
         print(' Input transfer time:', hms(to_secs(t.send_input_finish - t.send_input_start)))
         print(' Execution time:', hms(to_secs(t.execute_cmd_finish - t.execute_cmd_start)))
         print(' Output transfer time:', hms(to_secs(t.receive_output_finish - t.receive_output_start)))
-        with open(local_outfile(t.mechanism), 'rb') as f:
-            concept = pickle.load(f)
-            print('Result', concept)
 
         if t.return_status != 0:
             print(t.output)
-            print('ERROR:', t.return_status)
+            print('Return status:', t.return_status)
             sys.exit(1)
+
+        with open(local_outfile(t.mechanism), 'rb') as f:
+            concept = pickle.load(f)
+            print(concept)
 
     print("Done")
     print("Total execution time: {}".format(hms(time() - start_time)))
