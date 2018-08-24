@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
 set -x
 
 # VERSION=3.6.3
@@ -36,33 +35,41 @@ set -x
 # rm -rf $PYTHON_SOURCE $PYTHON_TARBALL $PYTHON_BUILD
 
 
-
+# Install Miniconda
 MINICONDA_INSTALLER=miniconda.sh
-MINICONDA_BUILD=miniconda
+MINICONDA_DIRNAME=miniconda
+MINICONDA_BUILD=$HOME/$MINICONDA_DIRNAME
 MINICONDA_TARBALL=miniconda.tar.gz
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $MINICONDA_INSTALLER
 chmod +x $MINICONDA_INSTALLER
-./$MINICONDA_INSTALLER -p $HOME/$MINICONDA_BUILD
+./$MINICONDA_INSTALLER -b -p $MINICONDA_BUILD
 
-# TODO: ensure miniconda is added to PATH
+rm $MINICONDA_INSTALLER
 
-# Install requirements into miniconda
+# Install requirements into Miniconda
 pip install -r requirements.txt
 
+# Make a tarball of Miniconda
 CURRENT=`pwd`
-cd $HOME && tar -cvf $MINICONDA_TARBALL $MINICONDA_BUILD
+cd $HOME && tar -cvf $MINICONDA_TARBALL $MINICONDA_DIRNAME
 mv $MINICONDA_TARBALL $CURRENT
 cd $CURRENT
 
 # Install CC Tools (WorkQueue)
 CCTOOLS_NAME=cctools-7.0.3-source
-wget http://ccl.cse.nd.edu/software/files/${CCTOOLS_NAME}.tar.gz
-tar zxvf ${CCTOOLS_NAME}.tar.gz
-cd ${CCTOOLS_NAME}
+CCTOOLS_BUILD=$HOME/cctools
+wget http://ccl.cse.nd.edu/software/files/$CCTOOLS_NAME.tar.gz
+tar zxvf $CCTOOLS_NAME.tar.gz
+cd $CCTOOLS_NAME
 ./configure --with-python-path no --with-perl-path no --with-globus-path no --with-python3-path $MINICONDA_BUILD
 make
 make install
+cd $CURRENT
 
-echo "export PATH=${HOME}/cctools/bin:$PATH" >> ~/.bashrc
-echo "export PYTHONPATH=${HOME}/cctools/lib/python3.6/site-packages/" >> ~/.bashrc
+rm $CCTOOLS_NAME.tar.gz
+
+# Modify paths
+printf "export PATH=\"%s/bin:\$PATH\"\\n" $MINICONDA_BUILD  >> ~/.bashrc
+printf "export PATH=\"%s/bin:\$PATH\"\\n" $CCTOOLS_BUILD  >> ~/.bashrc
+printf "export PYTHONPATH=\"%s/lib/python3.6/site-packages/\"\\n" $CCTOOLS_BUILD  >> ~/.bashrc
 source ~/.bashrc
