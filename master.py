@@ -18,11 +18,11 @@ from utils import Experiment
 
 
 # Name for the project (for catalog server)
-PROJECT_NAME = 'invariants'
+PROJECT_NAME = 'invariants3'
 # We have to use ports > 10000 on HTCondor
-PORT = 10002
+PORT = 10003
 PASSWORD_FILE = 'password_file'
-LOG_FILE = f'{PROJECT_NAME}.log'
+STATS_LOG_FILE = f'{PROJECT_NAME}.stats.log'
 
 # To start the master:
 #
@@ -36,6 +36,7 @@ LOG_FILE = f'{PROJECT_NAME}.log'
 #
 #    condor_submit_workers -N invariants -P password_file --memory 2048 10
 #
+
 # Be sure to increase the memory allocation! Default is 512 MB, which is not
 # sufficient for PyPhi tasks. The network and subsystem TPMs are already
 # 160 MB each for a 20-node network.
@@ -83,8 +84,6 @@ def load_pickle(filename):
 
 
 if __name__ == '__main__':
-
-    pyphi.config.REPR_VERBOSITY = 1
     
     start_time = time()
     # network = pyphi.examples.basic_network()
@@ -134,7 +133,7 @@ if __name__ == '__main__':
     
     # Enable debug logging
     # cctools_debug_flags_set("all")
-    q.specify_log(LOG_FILE)
+    q.specify_log(STATS_LOG_FILE)
 
     # Identify our master via a catalog server
     # so we can pass `-N PROJECT_NAME` to condor_submit_worker
