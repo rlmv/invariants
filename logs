@@ -1,0 +1,20 @@
+#!/bin/env bash
+
+
+function show_logs() {
+    tail -n 300 -f $1
+}
+
+if [ "$1" = "master" ]; then
+    show_logs nohup.out
+
+elif [ "$1" = "pool" ]; then
+    uid=`id -u`
+    show_logs /tmp/wq-pool-$uid/condor.logfile
+
+elif [ "$1" = "workers" ]; then
+    show_logs /tmp/$USER-workers/workers.log
+
+else 
+    echo "Bad option"
+fi
