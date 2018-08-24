@@ -44,6 +44,7 @@ class Experiment:
         with open(self.network_file, 'wb') as f:
             pickle.dump(self.network, f)
 
+    # TODO: make sure it doesn't already exist?
     def initialize(self):
         self.make_directory()
         self.write_experiment_file()

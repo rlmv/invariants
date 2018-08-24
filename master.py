@@ -20,9 +20,8 @@ from utils import Experiment
 # Name for the project (for catalog server)
 PROJECT_NAME = 'invariants3'
 # We have to use ports > 10000 on HTCondor
-PORT = 10003
+PORT = 10004
 PASSWORD_FILE = 'password_file'
-STATS_LOG_FILE = f'{PROJECT_NAME}.stats.log'
 
 # To start the master:
 #
@@ -84,14 +83,8 @@ def load_pickle(filename):
 
 
 if __name__ == '__main__':
-    
-    start_time = time()
-    # network = pyphi.examples.basic_network()
-    # network_pickle = 'basic.pickle'
-    # with open(network_pickle, 'wb') as f:
-    #     pickle.dump(network, f)
 
-    state = (0,) * 20
+    state = (0,) * 20  # TODO: pull from experiment
     elements = list(range(20))
     
     def mechanisms_for_order(elements, n):
@@ -106,8 +99,20 @@ if __name__ == '__main__':
         mechanisms_for_order(elements, 3),
         fourth
     )
-
+    
+    # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
+
+    start_master(experiment, mechanisms, state, PROJECT_NAME, PORT, PASSWORD_FILE)
+
+
+def start_master(experiment, mechanisms, state, project_name, port, password_file):
+
+    stats_log_file = f'{project_name}.stats.log'
+
+    # Go!
+    start_time = time()
+
     network = load_pickle(experiment.network_file)
 
     def outfile(mechanism):
@@ -129,20 +134,20 @@ if __name__ == '__main__':
             print(f'Input file {filename} not found')
             sys.exit(1)
 
-    q = WorkQueue(PORT)
+    q = WorkQueue(port)
     
     # Enable debug logging
     # cctools_debug_flags_set("all")
-    q.specify_log(STATS_LOG_FILE)
+    q.specify_log(stats_log_file)
 
     # Identify our master via a catalog server
     # so we can pass `-N PROJECT_NAME` to condor_submit_worker
     q.specify_master_mode(WORK_QUEUE_MASTER_MODE_CATALOG)
-    q.specify_name(PROJECT_NAME)
+    q.specify_name(project_name)
     
     # Enable password file
     # TODO: make this optional?
-    if not q.specify_password_file(PASSWORD_FILE):
+    if not q.specify_password_file(password_file):
         raise Exception('Failed to specify password file')
 
     print("Listening on port %d..." % q.port)
