@@ -13,6 +13,7 @@ import os
 import sys
 import pickle
 import subprocess
+import string
 import pyphi
 from time import time
 from utils import Experiment, load_pickle
@@ -76,6 +77,17 @@ def mechanism_to_str(mechanism):
 
 def mechanism_to_labels(network, mechanism):
     return ''.join(network.node_labels.indices2labels(mechanism))
+
+
+def generate_password_file(filename, length=50):
+    """
+    Randomly generate a password file.
+    """
+    characters = string.ascii_letters + string.digits
+
+    with open(filename, 'w') as f:
+        for i in range(length):
+            f.write(random.choice(characters))
 
 
 if __name__ == '__main__':
