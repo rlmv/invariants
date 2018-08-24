@@ -14,7 +14,7 @@ import sys
 import pickle
 import pyphi
 from time import time
-from utils import Experiment
+from utils import Experiment, load_pickle
 
 
 # Name for the project (for catalog server)
@@ -75,11 +75,6 @@ def mechanism_to_str(mechanism):
 
 def mechanism_to_labels(network, mechanism):
     return ''.join(network.node_labels.indices2labels(mechanism))
-
-
-def load_pickle(filename):
-    with open(filename, 'rb') as f:
-        return pickle.load(f)
 
 
 if __name__ == '__main__':

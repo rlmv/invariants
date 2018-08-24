@@ -1,10 +1,17 @@
 
 import os
 import json
+import glob
 import pickle
+
+import pyphi
 
 def state_to_str(state):
     return ''.join(str(x) for x in state)
+
+def load_pickle(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
 
 
 class Experiment:
@@ -49,5 +56,15 @@ class Experiment:
         self.make_directory()
         self.write_experiment_file()
         self.write_network_file()
+
+    def load_ces(self):
+        concepts = []
+        for path in glob.iglob(f'{self.directory}/*.pickle'):
+            if not path == self.network_file:
+                concept = load_pickle(path)
+                if concept.phi > 0:
+                    concepts.append(concept)
+        
+        return pyphi.models.CauseEffectStructure(concepts)
 
         
