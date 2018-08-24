@@ -16,6 +16,7 @@ import subprocess
 import string
 import pyphi
 from time import time
+from getpass import getuser
 from utils import Experiment, load_pickle
 
 # To start the master:
@@ -109,7 +110,7 @@ def start_master(experiment, mechanisms, state, project_name, port, password_fil
 
     stats_log_file = f'{project_name}.stats.log'
 
-    # Go!
+    print(f'Starting {project_name}...')
     start_time = time()
 
     network = load_pickle(experiment.network_file)
@@ -229,7 +230,7 @@ if __name__ == '__main__':
     
     # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
-    project_name = experiment.prefix
+    project_name = f'{experiment.prefix}_{getuser()}'
     port = 10004
     password_file = generate_password_file(f'{project_name}_password')
 
