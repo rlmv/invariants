@@ -25,9 +25,12 @@ if __name__ == "__main__":
     state = str_to_mechanism(arguments['<state>'])
     mechanism = str_to_mechanism(arguments['<mechanism>'])
     outfile = arguments['<outfile>']
-
-    pyphi.config.MEASURE = 'BLD'
-    pyphi.config.CACHE_REPERTOIRES = False
+    
+    # Should be loaded from config file
+    # Note: CACHE_REPERTOIRES cannot be configured at runtime
+    # and must be loaded from the config file
+    assert pyphi.config.MEASURE == 'BLD'
+    assert pyphi.config.CACHE_REPERTOIRES == False
 
     with open(network_file, 'rb') as f:
         network = pickle.load(f)

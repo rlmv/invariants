@@ -121,6 +121,7 @@ if __name__ == '__main__':
         'miniconda.tar.gz',
         'worker.sh',
         'worker.py',
+        'pyphi_config.yml',
         experiment.network_file
      ]
     
