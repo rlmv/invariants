@@ -104,6 +104,7 @@ def start_worker_factory(experiment, project_name, password_file):
                                stdout=log_file,
                                stderr=log_file)
     print('Done.')
+    return factory
 
 
 def start_master(experiment, mechanisms, state, project_name, port, password_file):
@@ -234,5 +235,12 @@ if __name__ == '__main__':
     port = 10004
     password_file = generate_password_file(f'{project_name}_password')
 
-    start_worker_factory(experiment, project_name, password_file)
-    start_master(experiment, mechanisms, state, project_name, port, password_file)
+    factory = start_worker_factory(experiment, project_name, password_file)
+    try:
+        start_master(experiment, mechanisms, state, project_name, port, password_file)
+    except:
+        raise
+    finally:
+        factory.kill()
+        factory.wait()
+
