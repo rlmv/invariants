@@ -2,6 +2,10 @@
 import glob
 from master import load_pickle, hms
 
+import matplotlib
+import pandas as pd
+#matplotlib.use('Agg')
+
 if __name__ == "__main__":
     
     def concept_name(concept):
@@ -20,8 +24,8 @@ if __name__ == "__main__":
                 ces.append(concept)
             runtimes[concept_name(concept)] = concept.time
     
-    for concept in ces:
-        print("{:4}{:<12}{}".format(
+    for concept in sorted(ces, key=lambda x: (len(x.mechanism), x.mechanism)):
+        print("{:6}{:<12}{}".format(
                 concept_name(concept),
                 concept.phi,
                 hms(concept.time)))
@@ -30,4 +34,4 @@ if __name__ == "__main__":
     print('Longest computation times:')
 
     for name, time in sorted(runtimes.items(), key=lambda x: x[1], reverse=True)[:20]:
-        print("{:4}{}".format(name, hms(time)))
+        print("{:6}{}".format(name, hms(time)))
