@@ -229,7 +229,7 @@ if __name__ == '__main__':
     )
     
     # Already has a saved network file
-    experiment = Experiment('largepyr', '2.1', None, state)
+    experiment = Experiment('test-pyr', '2.1', None, state)
     project_name = f'{experiment.prefix}_{getuser()}'
     port = 10004
     password_file = generate_password_file(f'{project_name}_password')

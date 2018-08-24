@@ -2,9 +2,11 @@
 
 ## Installation
 
-   git clone https://github.com/rlmv/invariants.git
-   cd invariants
-   sh ./install.sh
+To instal Python and Work Queue on the submit server, run the following:
+
+    git clone https://github.com/rlmv/invariants.git
+    cd invariants
+    sh ./install.sh
 
 ## Experiments
 
