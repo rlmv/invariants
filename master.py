@@ -12,6 +12,7 @@ import itertools
 import os
 import sys
 import pickle
+import subprocess
 import pyphi
 from time import time
 from utils import Experiment, load_pickle
@@ -99,6 +100,24 @@ if __name__ == '__main__':
     experiment = Experiment('largepyr', '2.1', None, state)
 
     start_master(experiment, mechanisms, state, PROJECT_NAME, PORT, PASSWORD_FILE)
+
+
+def start_worker_factory(experiment, project_name, password_file):
+    """
+    Start a `work_queue_factory` that dynamically manages workers.
+    """
+    log_file = open(f'{project_name}.factory.out')
+
+    factory = subprocess.Popen(['work_queue_factory', 
+                                '--master-name', project_name, 
+                                '--password', password_file, 
+                                '--memory', '4096',
+                                '--batch-type', 'condor',
+                                '--max-workers', '400',
+                                '--capacity',  # Provide as many workers as useful
+                                '--workers-per-cycle', '10'],
+                               stdout=log_file,
+                               stderr=log_file)
 
 
 def start_master(experiment, mechanisms, state, project_name, port, password_file):
