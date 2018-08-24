@@ -18,13 +18,6 @@ import pyphi
 from time import time
 from utils import Experiment, load_pickle
 
-
-# Name for the project (for catalog server)
-PROJECT_NAME = 'invariants3'
-# We have to use ports > 10000 on HTCondor
-PORT = 10004
-PASSWORD_FILE = 'password_file'
-
 # To start the master:
 #
 #    python master.py 
@@ -89,30 +82,7 @@ def generate_password_file(filename, length=50):
         for i in range(length):
             f.write(random.choice(characters))
 
-
-if __name__ == '__main__':
-
-    state = (0,) * 20  # TODO: pull from experiment
-    elements = list(range(20))
-    
-    def mechanisms_for_order(elements, n):
-        return pyphi.utils.combs(elements, n).tolist()
-
-    fourth = mechanisms_for_order(elements, 4)
-    random.shuffle(fourth)
-
-    mechanisms = itertools.chain(
-        mechanisms_for_order(elements, 1),
-        # mechanisms_for_order(elements, 2),
-        # mechanisms_for_order(elements, 3),
-        # fourth
-    )
-    
-    # Already has a saved network file
-    experiment = Experiment('largepyr', '2.1', None, state)
-
-    start_worker_factory(experiment, PROJECT_NAME, PASSWORD_FILE)
-    start_master(experiment, mechanisms, state, PROJECT_NAME, PORT, PASSWORD_FILE)
+    return filename
 
 
 def start_worker_factory(experiment, project_name, password_file):
@@ -237,3 +207,31 @@ def start_master(experiment, mechanisms, state, project_name, port, password_fil
 
     print("Done")
     print("Total execution time: {}".format(hms(time() - start_time)))
+
+
+if __name__ == '__main__':
+
+    state = (0,) * 20  # TODO: pull from experiment
+    elements = list(range(20))
+    
+    def mechanisms_for_order(elements, n):
+        return pyphi.utils.combs(elements, n).tolist()
+
+    # fourth = mechanisms_for_order(elements, 4)
+    # random.shuffle(fourth)
+
+    mechanisms = itertools.chain(
+        mechanisms_for_order(elements, 1),
+        # mechanisms_for_order(elements, 2),
+        # mechanisms_for_order(elements, 3),
+        # fourth
+    )
+    
+    # Already has a saved network file
+    experiment = Experiment('largepyr', '2.1', None, state)
+    project_name = experiment.prefix
+    port = 10004
+    password_file = generate_password_file(f'{project_name}_password')
+
+    start_worker_factory(experiment, project_name, password_file)
+    start_master(experiment, mechanisms, state, project_name, port, password_file)
