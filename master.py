@@ -7,6 +7,7 @@
 
 from work_queue import *
 
+import random
 import itertools
 import os
 import sys
@@ -15,10 +16,11 @@ import pyphi
 from time import time
 from utils import Experiment
 
+
 # Name for the project (for catalog server)
 PROJECT_NAME = 'invariants'
 # We have to use ports > 10000 on HTCondor
-PORT = 10001
+PORT = 10002
 PASSWORD_FILE = 'password_file'
 
 # To start the master:
@@ -31,7 +33,7 @@ PASSWORD_FILE = 'password_file'
 #
 # or 10 distributed workers on Condor:
 #
-#    condor_submit_workers -N PROJECT_NAME -P PASSWORD_FILE --memory 2048 10
+#    condor_submit_workers -N invariants -P password_file --memory 2048 10
 #
 # Be sure to increase the memory allocation! Default is 512 MB, which is not
 # sufficient for PyPhi tasks. The network and subsystem TPMs are already
@@ -95,10 +97,14 @@ if __name__ == '__main__':
     def mechanisms_for_order(elements, n):
         return pyphi.utils.combs(elements, n).tolist()
 
+    fourth = mechanisms_for_order(elements, 4)
+    random.shuffle(fourth)
+
     mechanisms = itertools.chain(
         mechanisms_for_order(elements, 1),
         mechanisms_for_order(elements, 2),
-        mechanisms_for_order(elements, 3)
+        mechanisms_for_order(elements, 3),
+        fourth
     )
 
     experiment = Experiment('largepyr', '2.1', None, state)
@@ -134,7 +140,8 @@ if __name__ == '__main__':
     
     # Enable password file
     # TODO: make this optional?
-    q.specify_password_file(PASSWORD_FILE)
+    if not q.specify_password_file(PASSWORD_FILE):
+        raise Exception('Failed to specify password file')
 
     print("Listening on port %d..." % q.port)
 
