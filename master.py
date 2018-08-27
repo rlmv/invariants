@@ -12,6 +12,7 @@ import itertools
 import os
 import sys
 import pickle
+import glob
 import subprocess
 import string
 import pyphi
@@ -98,7 +99,8 @@ def start_worker_factory(experiment, project_name, password_file):
                                 '--password', password_file, 
                                 '--memory', '4096',
                                 '--batch-type', 'condor',
-                                '--max-workers', '400',
+                                '--max-workers', '1000',
+                                '-d', 'wq',
                                 '--capacity',  # Provide as many workers as useful
                                 '--workers-per-cycle', '10'],
                                stdout=log_file,
@@ -106,6 +108,8 @@ def start_worker_factory(experiment, project_name, password_file):
     print('Done.')
     return factory
 
+
+N_PORTIONS = 400
 
 def start_master(experiment, mechanisms, state, project_name, port, password_file):
 
@@ -116,11 +120,17 @@ def start_master(experiment, mechanisms, state, project_name, port, password_fil
 
     network = load_pickle(experiment.network_file)
 
-    def outfile(mechanism):
+    def fmt_portion(portion, num_portions):
+        return f'{portion}:{num_portions}'
+
+    def partial(portion, num_portions):
+        return f'.part:{fmt_portion(portion, num_portions)}'
+
+    def remote_file(mechanism):
         return "{}.pickle".format(mechanism_to_labels(network, mechanism))
 
-    def local_outfile(mechanism):
-        return os.path.join(experiment.directory, outfile(mechanism))
+    def local_file(mechanism):
+        return os.path.join(experiment.directory, remote_file(mechanism))
 
     input_files = [
         'miniconda.tar.gz',
@@ -156,33 +166,43 @@ def start_master(experiment, mechanisms, state, project_name, port, password_fil
     for mechanism in mechanisms:
         mechanism = tuple(mechanism)
 
-        remote_outfile = outfile(mechanism)
-
-        if os.path.exists(local_outfile(mechanism)):
-            print(local_outfile(mechanism), 'exists. Skipping mechanism', mechanism_to_str(mechanism))
+        print(mechanism)
+        if os.path.exists(local_file(mechanism)):
+            print('Skipping mechanism', mechanism_to_labels(network, mechanism)) 
             continue
 
-        command = "sh worker.sh {} {} {} {}".format(
-            experiment.network_file,
-            mechanism_to_str(state),
-            mechanism_to_str(mechanism),
-            remote_outfile)
+        for portion in range(N_PORTIONS):
+            remote_outfile = remote_file(mechanism) + partial(portion, N_PORTIONS)
+            local_outfile = local_file(mechanism) + partial(portion, N_PORTIONS)
 
-        t = Task(command)
-        t.mechanism = mechanism
+            if os.path.exists(local_outfile):
+                print('Skipping purview portion', portion, N_PORTIONS)
+                continue
 
-        # Note that when specifying a file, we have to name its local name
-        # (e.g. gzip_path), and its remote name (e.g. "gzip"). These are
-        # usually the same.
-        for filename in input_files:
-            t.specify_input_file(filename, filename, cache=True)
+            command = "sh worker.sh {} {} {} {} --purview-portion={}".format(
+                experiment.network_file,
+                mechanism_to_str(state),
+                mechanism_to_str(mechanism),
+                remote_outfile, 
+                fmt_portion(portion, N_PORTIONS))
 
-        # Output files are typically not cached
-        t.specify_output_file(local_outfile(mechanism), remote_outfile, cache=False)
+            t = Task(command)
+            t.mechanism = mechanism
+            t.local_outfile = local_outfile
+            t.partial = True
 
-        # Submit the task
-        taskid = q.submit(t)
-        print(f"Submitted task {mechanism}, id={t.id}, command='{command}'")
+            # Note that when specifying a file, we have to name its local name
+            # (e.g. gzip_path), and its remote name (e.g. "gzip"). These are
+            # usually the same.
+            for filename in input_files:
+                t.specify_input_file(filename, filename, cache=True)
+
+            # Output files are typically not cached
+            t.specify_output_file(local_outfile, remote_outfile, cache=False)
+
+            # Submit the task
+            taskid = q.submit(t)
+            print(f"Submitted task {mechanism_to_labels(network, mechanism)}, id={t.id}, command='{command}'")
 
     print("Waiting for tasks to complete...")
     while not q.empty():
@@ -202,10 +222,28 @@ def start_master(experiment, mechanisms, state, project_name, port, password_fil
             print(t.output)
             print('Return status:', t.return_status)
             sys.exit(1)
+        
+        concept = load_pickle(t.local_outfile)
+        print('Partial', t.local_outfile)
+        print(concept)
 
-        with open(local_outfile(t.mechanism), 'rb') as f:
-            concept = pickle.load(f)
+        completed_parts = glob.glob(f'{local_file(t.mechanism)}.part:*:{N_PORTIONS}')
+        if len(completed_parts) == N_PORTIONS:
+            for path in completed_parts:
+                part = load_pickle(path)
+                
+                concept.cause = max(concept.cause, part.cause)
+                concept.effect = max(concept.effect, part.effect)
+                concept.time = concept.time + part.time
+
+            print('Writing final concept')
             print(concept)
+            with open(local_file(t.mechanism), 'wb') as f:
+                pickle.dump(concept, f)
+                
+            print('Removing partial files')
+            for path in completed_parts:
+                os.remove(path)
 
     print("Done")
     print("Total execution time: {}".format(hms(time() - start_time)))
@@ -219,14 +257,14 @@ if __name__ == '__main__':
     def mechanisms_for_order(elements, n):
         return pyphi.utils.combs(elements, n).tolist()
 
-    # fourth = mechanisms_for_order(elements, 4)
-    # random.shuffle(fourth)
+    fourth = mechanisms_for_order(elements, 4)
+    random.shuffle(fourth)
 
     mechanisms = itertools.chain(
         mechanisms_for_order(elements, 1),
-        # mechanisms_for_order(elements, 2),
-        # mechanisms_for_order(elements, 3),
-        # fourth
+        mechanisms_for_order(elements, 2),
+        mechanisms_for_order(elements, 3),
+        fourth
     )
     
     # Already has a saved network file
