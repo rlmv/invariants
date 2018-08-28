@@ -25,6 +25,7 @@ def purview_subset(subsystem, direction, mechanism, portion, num_portions):
     print(f'All {direction} purviews: {purviews}')
 
     # Get the candidate purviews for this worker
+    # TODO: use [portion::num_portions] for a better distribution
     candidates = tuple(tuple(purview) for purview in np.array_split(purviews, num_portions)[portion])
     print(f'Portion {portion}:{num_portions} {candidates}')
 

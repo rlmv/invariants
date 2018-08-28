@@ -1,11 +1,11 @@
 
 import os
 import subprocess
-from master import *
-from utils import *
 import pyphi
+from ..master import start_worker_factory, start_master, generate_password_file
+from ..utils import Experiment
 
-if __name__ == '__main__':
+def test_factory():
 
     # Generate the network & experiment.
     # This should generally be done in a separate script
@@ -33,3 +33,8 @@ if __name__ == '__main__':
     assert ces.mechanisms == reference_ces.mechanisms
 
     print('All good!')
+
+
+if __name__ == '__main__':
+    test_factory()
+    

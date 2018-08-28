@@ -94,7 +94,8 @@ def start_worker_factory(experiment, project_name, password_file):
     log_file = open(f'{project_name}.factory.out', 'w+')
     
     print('Starting worker factory...')
-    factory = subprocess.Popen(['work_queue_factory', 
+    factory = subprocess.Popen(['nohup',
+                                'work_queue_factory', 
                                 '--master-name', project_name, 
                                 '--password', password_file, 
                                 '--memory', '4096',
@@ -270,7 +271,7 @@ if __name__ == '__main__':
     # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
     project_name = f'{experiment.prefix}_{getuser()}'
-    port = 10004
+    port = 10005
     password_file = generate_password_file(f'{project_name}_password')
 
     factory = start_worker_factory(experiment, project_name, password_file)
