@@ -25,8 +25,11 @@ def purview_subset(subsystem, direction, mechanism, portion, num_portions):
     print(f'All {direction} purviews: {purviews}')
 
     # Get the candidate purviews for this worker
-    # TODO: use [portion::num_portions] for a better distribution
-    candidates = tuple(tuple(purview) for purview in np.array_split(purviews, num_portions)[portion])
+    # This slice starts at `portion` and gets every element at `num_portions` 
+    # intervals afterwards.
+    # This is better than taking the first `num_portions` elements, then
+    # the second, etc, as this gives all the largest purviews to a single worker.
+    candidates = purviews[portion::num_portions]
     print(f'Portion {portion}:{num_portions} {candidates}')
 
     return candidates
