@@ -78,11 +78,14 @@ def generate_password_file(filename, length=50):
     """
     Randomly generate a password file.
     """
-    characters = string.ascii_letters + string.digits
+    if not os.path.exists(filename):
+        characters = string.ascii_letters + string.digits
 
-    with open(filename, 'w') as f:
-        for i in range(length):
-            f.write(random.choice(characters))
+        with open(filename, 'w') as f:
+            for i in range(length):
+                f.write(random.choice(characters))
+    else:
+        print('Password file already exists')
 
     return filename
 
@@ -271,7 +274,7 @@ if __name__ == '__main__':
     # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
     project_name = f'{experiment.prefix}_{getuser()}'
-    port = 10005
+    port = 10006
     password_file = generate_password_file(f'{project_name}_password')
 
     factory = start_worker_factory(experiment, project_name, password_file)

@@ -15,6 +15,9 @@ elif [ "$1" = "pool" ]; then
 elif [ "$1" = "workers" ]; then
     show_logs /tmp/$USER-workers/workers.log
 
+elif [ "$1" = "factory" ]; then
+    show_logs "largepyr_2.1_00000000000000000000_nu_bomarchman.factory.out"
+
 else 
     echo "Bad option"
 fi
