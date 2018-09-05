@@ -47,7 +47,7 @@ chmod +x $MINICONDA_INSTALLER
 rm $MINICONDA_INSTALLER
 
 # Install requirements into Miniconda
-pip install -r requirements.txt
+$MINICONDA_BUILD/bin/pip install -r requirements.txt
 
 # Make a tarball of Miniconda
 CURRENT=`pwd`
