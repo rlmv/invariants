@@ -17,7 +17,6 @@ import subprocess
 import string
 import pyphi
 from time import time
-from getpass import getuser
 from utils import Experiment, load_pickle
 
 # To start the master:
@@ -99,21 +98,20 @@ class WorkerFactory:
         with WorkerFactory(...) as factory:
             start_master(...)
     """
-    def __init__(self, experiment, project_name, password_file):
+    def __init__(self, experiment, password_file):
         self.experiment = experiment
-        self.project_name = project_name
         self.password_file = password_file
 
         self.process = None
 
     def __enter__(self):
-        log_file = open(f'{self.project_name}.factory.out', 'w+')
+        log_file = open(f'{self.experiment}.factory.out', 'w+')
 
         print('Starting worker factory...')
         self.process = subprocess.Popen([
                 'nohup',
                 'work_queue_factory', 
-                '--master-name', self.project_name, 
+                '--master-name', self.experiment.project_name,
                 '--password', self.password_file, 
                 '--memory', '4096',
                 '--batch-type', 'condor',
@@ -130,13 +128,13 @@ class WorkerFactory:
         print('Done.')
 
 
-N_PORTIONS = 400
+N_PORTIONS = 2
 
-def start_master(experiment, mechanisms, state, project_name, port, password_file):
+def start_master(experiment, mechanisms, state, port, password_file):
 
-    stats_log_file = f'{project_name}.stats.log'
+    stats_log_file = f'{experiment}.stats.log'
 
-    print(f'Starting {project_name}...')
+    print(f'Starting {experiment.project_name}...')
     start_time = time()
 
     network = load_pickle(experiment.network_file)
@@ -175,7 +173,7 @@ def start_master(experiment, mechanisms, state, project_name, port, password_fil
     # Identify our master via a catalog server
     # so we can pass `-N PROJECT_NAME` to condor_submit_worker
     q.specify_master_mode(WORK_QUEUE_MASTER_MODE_CATALOG)
-    q.specify_name(project_name)
+    q.specify_name(experiment.project_name)
     
     # Enable password file
     # TODO: make this optional?
@@ -290,10 +288,9 @@ if __name__ == '__main__':
     
     # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
-    project_name = f'{experiment.prefix}_{getuser()}'
     port = 10006
-    password_file = generate_password_file(f'{project_name}_password')
+    password_file = generate_password_file(f'{experiment.project_name}_password')
 
-    with WorkerFactory(experiment, project_name, password_file) as factory:
-        start_master(experiment, mechanisms, state, project_name, port, password_file)
+    with WorkerFactory(experiment, password_file) as factory:
+        start_master(experiment, mechanisms, state, port, password_file)
 

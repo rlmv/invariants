@@ -14,14 +14,13 @@ def test_factory():
     experiment = Experiment('test_factory', '1.0', network, state)
     experiment.initialize()
 
-    project_name = experiment.prefix
     password_file = 'test_factory_password_file'
     generate_password_file(password_file)
     port = 10030
     mechanisms = pyphi.utils.powerset(network.node_indices, nonempty=True)
 
-    with WorkerFactory(experiment, project_name, password_file) as factory:
-        start_master(experiment, mechanisms, state, project_name, port, password_file)
+    with WorkerFactory(experiment, password_file) as factory:
+        start_master(experiment, mechanisms, state, port, password_file)
 
     # Load CES
     ces = experiment.load_ces()

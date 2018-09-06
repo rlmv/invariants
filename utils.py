@@ -3,6 +3,7 @@ import os
 import json
 import glob
 import pickle
+from getpass import getuser
 
 import pyphi
 
@@ -20,6 +21,9 @@ class Experiment:
         self.version = version
         self.network = network
         self.state = state
+
+    def __str__(self):
+        return self.prefix
     
     @property
     def prefix(self):
@@ -36,6 +40,14 @@ class Experiment:
     @property
     def network_file(self):
         return os.path.join(self.directory, f'{self.prefix}_network.pickle')
+
+    @property
+    def project_name(self):
+        '''Work queue project name, used for catalog server.
+
+        This adds the user name in case multiple people are running the same
+        experiment.'''
+        return f'{self.prefix}_{getuser()}'
 
     def write_experiment_file(self):
         with open(self.experiment_file, 'w') as f:
