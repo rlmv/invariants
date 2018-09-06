@@ -175,8 +175,6 @@ class ConceptTask(Task):
 
 def start_master(experiment, mechanisms, state, port):
 
-    stats_log_file = f'{experiment}.stats.log'
-
     print(f'Starting {experiment.project_name}...')
     start_time = time()
 
@@ -211,7 +209,7 @@ def start_master(experiment, mechanisms, state, port):
     
     # Enable debug logging
     # cctools_debug_flags_set("all")
-    q.specify_log(stats_log_file)
+    q.specify_log(experiment.stats_log_file)
 
     # Identify our master via a catalog server
     # so we can pass `-N PROJECT_NAME` to condor_submit_worker

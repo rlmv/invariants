@@ -76,6 +76,10 @@ class Experiment:
             print('Password file already exists')
         return filename
 
+    @property
+    def stats_log_file(self):
+        return f'{self}.stats.log'
+
     def write_experiment_file(self):
         with open(self.experiment_file, 'w') as f:
             json.dump({'name': self.name,
