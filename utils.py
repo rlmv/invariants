@@ -3,6 +3,8 @@ import os
 import json
 import glob
 import pickle
+import random
+import string
 from getpass import getuser
 
 import pyphi
@@ -13,6 +15,17 @@ def state_to_str(state):
 def load_pickle(filename):
     with open(filename, 'rb') as f:
         return pickle.load(f)
+
+
+def generate_password_file(filename, length=50):
+    """
+    Randomly generate a password file.
+    """
+    characters = string.ascii_letters + string.digits
+
+    with open(filename, 'w') as f:
+        for i in range(length):
+            f.write(random.choice(characters))
 
 
 class Experiment:
@@ -48,6 +61,15 @@ class Experiment:
         This adds the user name in case multiple people are running the same
         experiment.'''
         return f'{self.prefix}_{getuser()}'
+
+    @property
+    def password_file(self):
+        filename = f'{self}_password'
+        if not os.path.exists(filename):
+            generate_password_file(filename)
+        else:
+            print('Password file already exists')
+        return filename
 
     def write_experiment_file(self):
         with open(self.experiment_file, 'w') as f:

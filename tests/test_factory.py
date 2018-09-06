@@ -2,7 +2,7 @@
 import os
 import subprocess
 import pyphi
-from master import WorkerFactory, start_master, generate_password_file
+from master import WorkerFactory, start_master
 from utils import Experiment
 
 def test_factory():
@@ -14,13 +14,11 @@ def test_factory():
     experiment = Experiment('test_factory', '1.0', network, state)
     experiment.initialize()
 
-    password_file = 'test_factory_password_file'
-    generate_password_file(password_file)
     port = 10030
     mechanisms = pyphi.utils.powerset(network.node_indices, nonempty=True)
 
-    with WorkerFactory(experiment, password_file) as factory:
-        start_master(experiment, mechanisms, state, port, password_file)
+    with WorkerFactory(experiment) as factory:
+        start_master(experiment, mechanisms, state, port)
 
     # Load CES
     ces = experiment.load_ces()

@@ -14,7 +14,6 @@ import sys
 import pickle
 import glob
 import subprocess
-import string
 import pyphi
 from time import time
 from utils import Experiment, load_pickle
@@ -73,22 +72,6 @@ def mechanism_to_labels(network, mechanism):
     return ''.join(network.node_labels.indices2labels(mechanism))
 
 
-def generate_password_file(filename, length=50):
-    """
-    Randomly generate a password file.
-    """
-    if not os.path.exists(filename):
-        characters = string.ascii_letters + string.digits
-
-        with open(filename, 'w') as f:
-            for i in range(length):
-                f.write(random.choice(characters))
-    else:
-        print('Password file already exists')
-
-    return filename
-
-
 class WorkerFactory:
     """
     A work queue factory pool.
@@ -98,10 +81,8 @@ class WorkerFactory:
         with WorkerFactory(...) as factory:
             start_master(...)
     """
-    def __init__(self, experiment, password_file):
+    def __init__(self, experiment):
         self.experiment = experiment
-        self.password_file = password_file
-
         self.process = None
 
     def __enter__(self):
@@ -112,7 +93,7 @@ class WorkerFactory:
                 'nohup',
                 'work_queue_factory', 
                 '--master-name', self.experiment.project_name,
-                '--password', self.password_file, 
+                '--password', self.experiment.password_file, 
                 '--memory', '4096',
                 '--batch-type', 'condor',
                 '--max-workers', '1000',
@@ -130,7 +111,7 @@ class WorkerFactory:
 
 N_PORTIONS = 2
 
-def start_master(experiment, mechanisms, state, port, password_file):
+def start_master(experiment, mechanisms, state, port):
 
     stats_log_file = f'{experiment}.stats.log'
 
@@ -176,9 +157,7 @@ def start_master(experiment, mechanisms, state, port, password_file):
     q.specify_name(experiment.project_name)
     
     # Enable password file
-    # TODO: make this optional?
-    if not q.specify_password_file(password_file):
-        raise Exception('Failed to specify password file')
+    q.specify_password_file(experiment.password_file)
 
     print("Listening on port %d..." % q.port)
 
@@ -289,8 +268,7 @@ if __name__ == '__main__':
     # Already has a saved network file
     experiment = Experiment('largepyr', '2.1', None, state)
     port = 10006
-    password_file = generate_password_file(f'{experiment.project_name}_password')
 
-    with WorkerFactory(experiment, password_file) as factory:
-        start_master(experiment, mechanisms, state, port, password_file)
+    with WorkerFactory(experiment) as factory:
+        start_master(experiment, mechanisms, state, port)
 
