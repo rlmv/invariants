@@ -110,7 +110,8 @@ class WorkerFactory:
         print('Done.')
 
 
-N_PORTIONS = 2
+TIMEOUT = 60 * 60  # 1 hour
+
 
 class ConceptTask(Task):
 
@@ -132,19 +133,19 @@ class ConceptTask(Task):
         return "sh worker.sh {} {} {} {}".format(
                 self.experiment.network_file,
                 mechanism_to_str(self.state),
-                mechanism_to_str(self.mechanism),
-                self.remote_outfile)
+                self.infile,
+                self.outfile)
 
     @property
-    def remote_outfile(self):
-        return "{}.pickle".format(mechanism_to_labels(self.network, self.mechanism))
+    def infile(self):
+        return f'{self.experiment.directory}/{self.uuid}.input'
 
     @property
     def result_file(self):
-        return f'{self.experiment.directory}/{self.remote_outfile}'
+        return f'{self.experiment.directory}/{mechanism_to_labels(self.network, self.mechanism)}.pickle'
 
     @property
-    def local_outfile(self):
+    def outfile(self):
         return f'{self.result_file}.part:{self.uuid}'
 
     def merge_results(self):
@@ -163,15 +164,42 @@ class ConceptTask(Task):
             part = load_pickle(part_filename)
             
             # TODO: deal with completed purviews
-            concept.cause = max(concept.cause, part.cause)
-            concept.effect = max(concept.effect, part.effect)
-            concept.time = concept.time + part.time
 
         dump_pickle(concept_filename, concept)
 
         print(f'Removing partial files {completed_parts}')
         os.remove(*completed_parts)
-            
+
+
+class PartialConcept:
+    ALL = '__all__'
+
+    def __init__(self, mechanism):
+        self.mechanism = mechanism
+
+        self.remaining_cause_purviews = self.ALL
+        self.remaining_effect_purviews = self.ALL
+
+        self.completed_cause_purviews = []
+        self.completed_effect_purviews = []
+        
+        self.concept = None
+        
+    def merge(self, other):
+        if self.concept is None:
+            self.concept = other
+        else:
+            self.concept.cause = max(self.concept.cause, other.cause)
+            self.concept.effect = max(self.concept.effect, other.effect)
+            self.concept.time = self.concept.time + other.time
+
+        # Remove extra data
+        self.concept.subsystem = None  
+        self.concept.cause.ria._repertoire = None
+        self.concept.cause.ria._partitioned_repertoire = None
+        self.concept.effect.ria._repertoire = None
+        self.concept.effect.ria._partitioned_repertoire = None
+        
 
 def start_master(experiment, mechanisms, state, port):
 
@@ -180,22 +208,12 @@ def start_master(experiment, mechanisms, state, port):
 
     network = load_pickle(experiment.network_file)
 
-    def fmt_portion(portion, num_portions):
-        return f'{portion}:{num_portions}'
-
-    def partial(portion, num_portions):
-        return f'.part:{fmt_portion(portion, num_portions)}'
-
-    def remote_file(mechanism):
-        return "{}.pickle".format(mechanism_to_labels(network, mechanism))
-
-    def local_file(mechanism):
-        return os.path.join(experiment.directory, remote_file(mechanism))
-
     input_files = [
         'miniconda.tar.gz',
         'worker.sh',
         'worker.py',
+        'master.py',
+        'utils.py',
         'pyphi_config.yml',
         experiment.network_file
      ]
@@ -208,7 +226,7 @@ def start_master(experiment, mechanisms, state, port):
     q = WorkQueue(port)
     
     # Enable debug logging
-    # cctools_debug_flags_set("all")
+#    cctools_debug_flags_set("wq")
     q.specify_log(experiment.stats_log_file)
 
     # Identify our master via a catalog server
@@ -224,12 +242,16 @@ def start_master(experiment, mechanisms, state, port):
     for mechanism in mechanisms:
         mechanism = tuple(mechanism)
         mechanism_labels = mechanism_to_labels(network, mechanism)
-        
+
         t = ConceptTask(experiment, network, state, mechanism)
 
         if os.path.exists(t.result_file):
             print('Skipping mechanism', mechanism_labels)
             continue
+
+        partial_concept = PartialConcept(mechanism)
+        dump_pickle(t.infile, partial_concept)
+        t.specify_input_file(t.infile, t.infile, cache=False)
 
         # Else: check if partial files exist
 
@@ -241,7 +263,7 @@ def start_master(experiment, mechanisms, state, port):
             t.specify_input_file(filename, filename, cache=True)
 
         # Output files are typically not cached
-        t.specify_output_file(t.local_outfile, t.remote_outfile, cache=False)
+        t.specify_output_file(t.outfile, t.outfile, cache=False)
 
         # Submit the task
         q.submit(t)
@@ -266,13 +288,19 @@ def start_master(experiment, mechanisms, state, port):
             print('Return status:', t.return_status)
             sys.exit(1)
         
-        concept = load_pickle(t.local_outfile)
-        print('Partial', t.local_outfile)
-        print(concept)
+        partial_concept = load_pickle(t.outfile)
+        print('Partial', t.outfile)
+        print('Complete cause purviews:', partial_concept.completed_cause_purviews,
+              'Remaining cause purviews:', partial_concept.remaining_cause_purviews)
+        print('Complete effect purviews:', partial_concept.completed_effect_purviews,
+              'Remaining effect purviews:', partial_concept.remaining_effect_purviews)
 
         print('Writing final concept')
-#        print(concept)          
-        os.rename(t.local_outfile, t.result_file)
+        print(partial_concept.concept)          
+
+        dump_pickle(t.result_file, partial_concept.concept)
+        os.remove(t.outfile)
+        os.remove(t.infile)
 
     print("Done")
     print("Total execution time: {}".format(hms(time() - start_time)))

@@ -3,7 +3,7 @@
 PyPhi Worker (for Work Queue)
 
 Usage:
-  worker.py <network> <state> <mechanism> <outfile> [--purview-portion=<i:num_portions>]
+  worker.py <network> <state> <infile> <outfile>
 
 Options:
   -h --help     Show this screen.
@@ -15,6 +15,8 @@ import pyphi
 import numpy as np
 from docopt import docopt
 
+from utils import load_pickle, dump_pickle
+from master import PartialConcept
 
 def str_to_mechanism(s):
     return tuple(int(n) for n in s.split(','))
@@ -35,10 +37,8 @@ if __name__ == "__main__":
     arguments = docopt(__doc__)
     network_file = arguments['<network>']
     state = str_to_mechanism(arguments['<state>'])
-    mechanism = str_to_mechanism(arguments['<mechanism>'])
+    infile = arguments['<infile>']
     outfile = arguments['<outfile>']
-
-    purview_portion = arguments['--purview-portion']
 
     # Should be loaded from config file
     # Note: CACHE_REPERTOIRES cannot be configured at runtime
@@ -51,25 +51,32 @@ if __name__ == "__main__":
 
     subsystem = pyphi.Subsystem(network, state)
 
-    if purview_portion is not None:
-        portion, num_portions = [int(p) for p in purview_portion.split(':')]
-        cause_purviews = purview_subset(subsystem, pyphi.Direction.CAUSE, mechanism, portion, num_portions)
-        effect_purviews = purview_subset(subsystem, pyphi.Direction.EFFECT, mechanism, portion, num_portions)
-    else:
-        cause_purviews = False
-        effect_purviews = False
+    # PartialConcept
+    partial = load_pickle(infile)
+    mechanism = partial.mechanism
 
-    concept = subsystem.concept(mechanism, cause_purviews=cause_purviews, effect_purviews=effect_purviews)
-    print(concept)
-
-    # Remove extra data
-    concept.subsystem = None  
-    concept.cause.ria._repertoire = None
-    concept.cause.ria._partitioned_repertoire = None
-    concept.effect.ria._repertoire = None
-    concept.effect.ria._partitioned_repertoire = None
+    if partial.remaining_cause_purviews == partial.ALL:
+        partial.remaining_cause_purviews = subsystem.potential_purviews(
+            pyphi.Direction.CAUSE, mechanism)
         
-    with open(outfile, 'wb') as f:
-        pickle.dump(concept, f)
+    if partial.remaining_effect_purviews == partial.ALL:
+        partial.remaining_effect_purviews = subsystem.potential_purviews(
+            pyphi.Direction.EFFECT, mechanism)
+        
+    while partial.remaining_cause_purviews:
+        cause_purview = partial.remaining_cause_purviews.pop()
+        concept = subsystem.concept(mechanism, cause_purviews=(cause_purview,), effect_purviews=())
+        partial.merge(concept)
+        partial.completed_cause_purviews.append(cause_purview)
+
+    while partial.remaining_effect_purviews:
+        effect_purview = partial.remaining_effect_purviews.pop()
+        concept = subsystem.concept(mechanism, cause_purviews=(), effect_purviews=(effect_purview,))
+        partial.merge(concept)
+        partial.completed_effect_purviews.append(effect_purview)
+
+    dump_pickle(outfile, partial)
+
+    print(partial.concept)
 
     

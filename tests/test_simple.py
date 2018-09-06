@@ -18,11 +18,16 @@ def test_simple():
     password_file = 'password_file'
     
     print('Starting worker...')
-    worker = subprocess.Popen(['work_queue_worker', '-N', experiment.project_name, '-P', experiment.password_file])
+    worker = subprocess.Popen([
+            'work_queue_worker', 
+            '-N', experiment.project_name, 
+            '-P', experiment.password_file,
+            #'-d', 'wq'
+            ])
 
     try:
         print('Starting master...')
-        start_master(experiment, mechanisms, state, 10020)
+        start_master(experiment, mechanisms, state, 10021)
     except:
         raise
     finally:
