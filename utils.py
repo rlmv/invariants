@@ -17,6 +17,11 @@ def load_pickle(filename):
         return pickle.load(f)
 
 
+def dump_pickle(filename, obj):
+    with open(filename, 'wb') as f:
+        pickle.dump(obj, f)
+
+
 def generate_password_file(filename, length=50):
     """
     Randomly generate a password file.

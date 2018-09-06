@@ -7,6 +7,7 @@
 
 from work_queue import *
 
+from uuid import uuid4
 import random
 import itertools
 import os
@@ -16,7 +17,7 @@ import glob
 import subprocess
 import pyphi
 from time import time
-from utils import Experiment, load_pickle
+from utils import Experiment, load_pickle, dump_pickle
 
 # To start the master:
 #
@@ -111,6 +112,67 @@ class WorkerFactory:
 
 N_PORTIONS = 2
 
+class ConceptTask(Task):
+
+    def __init__(self, experiment, network, state, mechanism):
+        self.experiment = experiment
+        self.network = network
+        self.mechanism = mechanism
+        self.state = state
+
+        # Unique ID for this task
+        # Work Queue tasks also have an `id`, but this is not generated
+        # until the task is submitted
+        self.uuid = uuid4()
+        
+        super().__init__(self.command)
+
+    @property
+    def command(self):
+        return "sh worker.sh {} {} {} {}".format(
+                self.experiment.network_file,
+                mechanism_to_str(self.state),
+                mechanism_to_str(self.mechanism),
+                self.remote_outfile)
+
+    @property
+    def remote_outfile(self):
+        return "{}.pickle".format(mechanism_to_labels(self.network, self.mechanism))
+
+    @property
+    def result_file(self):
+        return f'{self.experiment.directory}/{self.remote_outfile}'
+
+    @property
+    def local_outfile(self):
+        return f'{self.result_file}.part:{self.uuid}'
+
+    def merge_results(self):
+        # If the cumulative a master outfile does not exist, make the output
+        # of this task 
+        # if not os.path.exists(self.result_file):
+        #     shutil.move(self.local_outfile, self.result_file)
+        #     return 
+        completed_parts = glob.glob(f'{self.result_file}.part:*')
+        
+        concept_filename = completed_parts.pop()
+        concept = load_pickle(concept_filename)
+
+        for part_filename in completed_parts:
+            print(f'Merging {part_filename} into {concept_filename}')
+            part = load_pickle(part_filename)
+            
+            # TODO: deal with completed purviews
+            concept.cause = max(concept.cause, part.cause)
+            concept.effect = max(concept.effect, part.effect)
+            concept.time = concept.time + part.time
+
+        dump_pickle(concept_filename, concept)
+
+        print(f'Removing partial files {completed_parts}')
+        os.remove(*completed_parts)
+            
+
 def start_master(experiment, mechanisms, state, port):
 
     stats_log_file = f'{experiment}.stats.log'
@@ -163,44 +225,29 @@ def start_master(experiment, mechanisms, state, port):
 
     for mechanism in mechanisms:
         mechanism = tuple(mechanism)
+        mechanism_labels = mechanism_to_labels(network, mechanism)
+        
+        t = ConceptTask(experiment, network, state, mechanism)
 
-        print(mechanism)
-        if os.path.exists(local_file(mechanism)):
-            print('Skipping mechanism', mechanism_to_labels(network, mechanism)) 
+        if os.path.exists(t.result_file):
+            print('Skipping mechanism', mechanism_labels)
             continue
 
-        for portion in range(N_PORTIONS):
-            remote_outfile = remote_file(mechanism) + partial(portion, N_PORTIONS)
-            local_outfile = local_file(mechanism) + partial(portion, N_PORTIONS)
+        # Else: check if partial files exist
 
-            if os.path.exists(local_outfile):
-                print('Skipping purview portion', portion, N_PORTIONS)
-                continue
+        # if os.path.exists(t.local_outfile):
+        #     print('Skipping purview portion', portion, N_PORTIONS)
+        #     continue
 
-            command = "sh worker.sh {} {} {} {} --purview-portion={}".format(
-                experiment.network_file,
-                mechanism_to_str(state),
-                mechanism_to_str(mechanism),
-                remote_outfile, 
-                fmt_portion(portion, N_PORTIONS))
+        for filename in input_files:
+            t.specify_input_file(filename, filename, cache=True)
 
-            t = Task(command)
-            t.mechanism = mechanism
-            t.local_outfile = local_outfile
-            t.partial = True
+        # Output files are typically not cached
+        t.specify_output_file(t.local_outfile, t.remote_outfile, cache=False)
 
-            # Note that when specifying a file, we have to name its local name
-            # (e.g. gzip_path), and its remote name (e.g. "gzip"). These are
-            # usually the same.
-            for filename in input_files:
-                t.specify_input_file(filename, filename, cache=True)
-
-            # Output files are typically not cached
-            t.specify_output_file(local_outfile, remote_outfile, cache=False)
-
-            # Submit the task
-            taskid = q.submit(t)
-            print(f"Submitted task {mechanism_to_labels(network, mechanism)}, id={t.id}, command='{command}'")
+        # Submit the task
+        q.submit(t)
+        print(f"Submitted task {mechanism_labels}, command='{t.command}'")
 
     print("Waiting for tasks to complete...")
     while not q.empty():
@@ -225,23 +272,9 @@ def start_master(experiment, mechanisms, state, port):
         print('Partial', t.local_outfile)
         print(concept)
 
-        completed_parts = glob.glob(f'{local_file(t.mechanism)}.part:*:{N_PORTIONS}')
-        if len(completed_parts) == N_PORTIONS:
-            for path in completed_parts:
-                part = load_pickle(path)
-                
-                concept.cause = max(concept.cause, part.cause)
-                concept.effect = max(concept.effect, part.effect)
-                concept.time = concept.time + part.time
-
-            print('Writing final concept')
-            print(concept)
-            with open(local_file(t.mechanism), 'wb') as f:
-                pickle.dump(concept, f)
-                
-            print('Removing partial files')
-            for path in completed_parts:
-                os.remove(path)
+        print('Writing final concept')
+#        print(concept)          
+        os.rename(t.local_outfile, t.result_file)
 
     print("Done")
     print("Total execution time: {}".format(hms(time() - start_time)))
