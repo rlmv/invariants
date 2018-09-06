@@ -2,8 +2,8 @@
 import os
 import subprocess
 import pyphi
-from ..master import start_worker_factory, start_master, generate_password_file
-from ..utils import Experiment
+from master import WorkerFactory, start_master, generate_password_file
+from utils import Experiment
 
 def test_factory():
 
@@ -20,8 +20,8 @@ def test_factory():
     port = 10030
     mechanisms = pyphi.utils.powerset(network.node_indices, nonempty=True)
 
-    start_worker_factory(experiment, project_name, password_file)
-    start_master(experiment, mechanisms, state, project_name, port, password_file)
+    with WorkerFactory(experiment, project_name, password_file) as factory:
+        start_master(experiment, mechanisms, state, project_name, port, password_file)
 
     # Load CES
     ces = experiment.load_ces()

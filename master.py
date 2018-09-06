@@ -90,27 +90,44 @@ def generate_password_file(filename, length=50):
     return filename
 
 
-def start_worker_factory(experiment, project_name, password_file):
+class WorkerFactory:
     """
-    Start a `work_queue_factory` that dynamically manages workers.
-    """
-    log_file = open(f'{project_name}.factory.out', 'w+')
+    A work queue factory pool.
     
-    print('Starting worker factory...')
-    factory = subprocess.Popen(['nohup',
-                                'work_queue_factory', 
-                                '--master-name', project_name, 
-                                '--password', password_file, 
-                                '--memory', '4096',
-                                '--batch-type', 'condor',
-                                '--max-workers', '1000',
-                                '-d', 'wq',
-                                '--capacity',  # Provide as many workers as useful
-                                '--workers-per-cycle', '10'],
-                               stdout=log_file,
-                               stderr=log_file)
-    print('Done.')
-    return factory
+    Use as a context manager, eg:
+    
+        with WorkerFactory(...) as factory:
+            start_master(...)
+    """
+    def __init__(self, experiment, project_name, password_file):
+        self.experiment = experiment
+        self.project_name = project_name
+        self.password_file = password_file
+
+        self.process = None
+
+    def __enter__(self):
+        log_file = open(f'{self.project_name}.factory.out', 'w+')
+
+        print('Starting worker factory...')
+        self.process = subprocess.Popen([
+                'nohup',
+                'work_queue_factory', 
+                '--master-name', self.project_name, 
+                '--password', self.password_file, 
+                '--memory', '4096',
+                '--batch-type', 'condor',
+                '--max-workers', '1000',
+                '-d', 'wq',
+                '--capacity',  # Provide as many workers as useful
+                '--workers-per-cycle', '10'
+                ], stdout=log_file, stderr=log_file)
+    
+    def __exit__(self, *exc):
+        print('Killing factory...')
+        self.process.kill()
+        self.process.wait()
+        print('Done.')
 
 
 N_PORTIONS = 400
@@ -277,12 +294,6 @@ if __name__ == '__main__':
     port = 10006
     password_file = generate_password_file(f'{project_name}_password')
 
-    factory = start_worker_factory(experiment, project_name, password_file)
-    try:
+    with WorkerFactory(experiment, project_name, password_file) as factory:
         start_master(experiment, mechanisms, state, project_name, port, password_file)
-    except:
-        raise
-    finally:
-        factory.kill()
-        factory.wait()
 
