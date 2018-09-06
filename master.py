@@ -110,8 +110,10 @@ class WorkerFactory:
         print('Done.')
 
 
-TIMEOUT = 60 * 60  # 1 hour
+TIMEOUT = 0 # 60 * 60  # 1 hour
 
+# Number of divisions
+N_DIVISIONS = 5  
 
 class ConceptTask(Task):
 
@@ -130,19 +132,24 @@ class ConceptTask(Task):
 
     @property
     def command(self):
-        return "sh worker.sh {} {} {} {}".format(
+        return "sh worker.sh {} {} {} {} {}".format(
                 self.experiment.network_file,
                 mechanism_to_str(self.state),
                 self.infile,
-                self.outfile)
+                self.outfile,
+                TIMEOUT)
 
     @property
     def infile(self):
-        return f'{self.experiment.directory}/{self.uuid}.input'
+        return f'{self.outfile}.input'
 
     @property
     def result_file(self):
         return f'{self.experiment.directory}/{mechanism_to_labels(self.network, self.mechanism)}.pickle'
+
+    @property
+    def partial_result_file(self):
+        return f'{self.result_file}.part'
 
     @property
     def outfile(self):
@@ -150,25 +157,21 @@ class ConceptTask(Task):
 
     def merge_results(self):
         # If the cumulative a master outfile does not exist, make the output
-        # of this task 
-        # if not os.path.exists(self.result_file):
-        #     shutil.move(self.local_outfile, self.result_file)
-        #     return 
-        completed_parts = glob.glob(f'{self.result_file}.part:*')
-        
-        concept_filename = completed_parts.pop()
-        concept = load_pickle(concept_filename)
+        # of this task the 
+        if not os.path.exists(self.partial_result_file):
+            print(f'Promoting {self.outfile} to {self.partial_result_file}')
+            os.rename(self.outfile, self.partial_result_file)
+            return load_pickle(self.partial_result_file), self.partial_result_file
 
-        for part_filename in completed_parts:
-            print(f'Merging {part_filename} into {concept_filename}')
-            part = load_pickle(part_filename)
-            
-            # TODO: deal with completed purviews
+        this_result = load_pickle(self.outfile)
+        print(f'Merging {self.outfile} into {self.partial_result_file}')
 
-        dump_pickle(concept_filename, concept)
+        running_result = load_pickle(self.partial_result_file)
+        running_result.merge_partial(this_result)
+        dump_pickle(self.partial_result_file, running_result)
+        os.remove(self.outfile)
 
-        print(f'Removing partial files {completed_parts}')
-        os.remove(*completed_parts)
+        return running_result, self.partial_result_file
 
 
 class PartialConcept:
@@ -184,8 +187,12 @@ class PartialConcept:
         self.completed_effect_purviews = []
         
         self.concept = None
+
+    @property
+    def unfinished(self):
+        return self.remaining_cause_purviews or self.remaining_effect_purviews
         
-    def merge(self, other):
+    def merge_concept(self, other):
         if self.concept is None:
             self.concept = other
         else:
@@ -199,7 +206,30 @@ class PartialConcept:
         self.concept.cause.ria._partitioned_repertoire = None
         self.concept.effect.ria._repertoire = None
         self.concept.effect.ria._partitioned_repertoire = None
+
+        return self
+
+    def merge_partial(self, other):
+        self.merge_concept(other.concept)
+        self.completed_cause_purviews += other.completed_cause_purviews
+        self.completed_effect_purviews += other.completed_effect_purviews
         
+        self.remaining_cause_purviews = set(self.remaining_cause_purviews).union(other.remaining_cause_purviews) - set(self.completed_cause_purviews)
+
+        self.remaining_effect_purviews = set(self.remaining_effect_purviews).union(other.remaining_effect_purviews) - set(self.completed_effect_purviews)
+        return self
+
+    def divide(self, n):
+        """Split this task into ``n`` new tasks."""
+        for i in range(n):
+            c = PartialConcept(self.mechanism)
+            c.remaining_cause_purviews = self.remaining_cause_purviews[i::n]
+            c.remaining_effect_purviews = self.remaining_effect_purviews[i::n]
+            # completed_purviews are empty lists
+
+            if c.unfinished:
+                yield c
+
 
 def start_master(experiment, mechanisms, state, port):
 
@@ -255,10 +285,6 @@ def start_master(experiment, mechanisms, state, port):
 
         # Else: check if partial files exist
 
-        # if os.path.exists(t.local_outfile):
-        #     print('Skipping purview portion', portion, N_PORTIONS)
-        #     continue
-
         for filename in input_files:
             t.specify_input_file(filename, filename, cache=True)
 
@@ -276,8 +302,9 @@ def start_master(experiment, mechanisms, state, port):
         t = q.wait(5)
         if not t:
             continue
-
-        print('Task', t.mechanism, 'complete')
+        
+        print()
+        print('Got result', t.outfile)
         print( 'Result code', t.result)
         print(' Input transfer time:', hms(to_secs(t.send_input_finish - t.send_input_start)))
         print(' Execution time:', hms(to_secs(t.execute_cmd_finish - t.execute_cmd_start)))
@@ -287,19 +314,36 @@ def start_master(experiment, mechanisms, state, port):
             print(t.output)
             print('Return status:', t.return_status)
             sys.exit(1)
-        
+            
         partial_concept = load_pickle(t.outfile)
-        print('Partial', t.outfile)
-        print('Complete cause purviews:', partial_concept.completed_cause_purviews,
-              'Remaining cause purviews:', partial_concept.remaining_cause_purviews)
-        print('Complete effect purviews:', partial_concept.completed_effect_purviews,
-              'Remaining effect purviews:', partial_concept.remaining_effect_purviews)
 
-        print('Writing final concept')
-        print(partial_concept.concept)          
+        if partial_concept.unfinished:
+            print('Timed out. Submitting smaller jobs...')
+            for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
+                mechanism = child.mechanism
+                child_t = ConceptTask(experiment, network, state, mechanism)
+                dump_pickle(child_t.infile, child)
+                child_t.specify_input_file(child_t.infile, child_t.infile, cache=False)
 
-        dump_pickle(t.result_file, partial_concept.concept)
-        os.remove(t.outfile)
+                for filename in input_files:
+                    child_t.specify_input_file(filename, filename, cache=True)
+                    
+                child_t.specify_output_file(child_t.outfile, child_t.outfile, cache=False)
+
+                # Submit the task
+                q.submit(child_t)
+                print(f"Submitted child {i}, command='{child_t.command}'")
+
+        # Combine this partial result with any other partial results
+        partial_concept, partial_filename = t.merge_results()
+
+        # Did this piece complete the whole?
+        if not partial_concept.unfinished:
+            print('Writing final concept')
+            print(partial_concept.concept)          
+            dump_pickle(t.result_file, partial_concept.concept)
+            os.remove(partial_filename)
+            
         os.remove(t.infile)
 
     print("Done")

@@ -22,7 +22,7 @@ def test_simple():
             'work_queue_worker', 
             '-N', experiment.project_name, 
             '-P', experiment.password_file,
-            #'-d', 'wq'
+#            '-d', 'all'
             ])
 
     try:
