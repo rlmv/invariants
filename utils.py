@@ -111,3 +111,61 @@ class Experiment:
         return pyphi.models.CauseEffectStructure(concepts)
 
         
+
+
+class PartialConcept:
+    ALL = '__all__'
+
+    def __init__(self, mechanism):
+        self.mechanism = mechanism
+
+        self.remaining_cause_purviews = self.ALL
+        self.remaining_effect_purviews = self.ALL
+
+        self.completed_cause_purviews = []
+        self.completed_effect_purviews = []
+        
+        self.concept = None
+
+    @property
+    def unfinished(self):
+        return self.remaining_cause_purviews or self.remaining_effect_purviews
+        
+    def merge_concept(self, other):
+        if self.concept is None:
+            self.concept = other
+        else:
+            self.concept.cause = max(self.concept.cause, other.cause)
+            self.concept.effect = max(self.concept.effect, other.effect)
+            self.concept.time = self.concept.time + other.time
+
+        # Remove extra data
+        self.concept.subsystem = None  
+        self.concept.cause.ria._repertoire = None
+        self.concept.cause.ria._partitioned_repertoire = None
+        self.concept.effect.ria._repertoire = None
+        self.concept.effect.ria._partitioned_repertoire = None
+
+        return self
+
+    def merge_partial(self, other):
+        self.merge_concept(other.concept)
+        self.completed_cause_purviews += other.completed_cause_purviews
+        self.completed_effect_purviews += other.completed_effect_purviews
+
+        # TODO: convert to lists
+        self.remaining_cause_purviews = set(self.remaining_cause_purviews).union(other.remaining_cause_purviews) - set(self.completed_cause_purviews)
+
+        self.remaining_effect_purviews = set(self.remaining_effect_purviews).union(other.remaining_effect_purviews) - set(self.completed_effect_purviews)
+        return self
+
+    def divide(self, n):
+        """Split this task into ``n`` new tasks."""
+        for i in range(n):
+            c = PartialConcept(self.mechanism)
+            c.remaining_cause_purviews = self.remaining_cause_purviews[i::n]
+            c.remaining_effect_purviews = self.remaining_effect_purviews[i::n]
+            # completed_purviews are empty lists
+
+            if c.unfinished:
+                yield c

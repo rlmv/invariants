@@ -2,7 +2,7 @@
 
 
 function show_logs() {
-    tail -n 300 -f $1
+    tail -n 1000 -f $1
 }
 
 if [ "$1" = "master" ]; then

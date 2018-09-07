@@ -17,7 +17,7 @@ import glob
 import subprocess
 import pyphi
 from time import time
-from utils import Experiment, load_pickle, dump_pickle
+from utils import Experiment, load_pickle, dump_pickle, PartialConcept
 
 # To start the master:
 #
@@ -95,14 +95,14 @@ class WorkerFactory:
                 'work_queue_factory', 
                 '--master-name', self.experiment.project_name,
                 '--password', self.experiment.password_file, 
-                '--memory', '4096',
+                '--memory', '8192',
                 '--batch-type', 'condor',
                 '--max-workers', '1000',
                 '-d', 'wq',
                 '--capacity',  # Provide as many workers as useful
                 '--workers-per-cycle', '10'
                 ], stdout=log_file, stderr=log_file)
-    
+
     def __exit__(self, *exc):
         print('Killing factory...')
         self.process.kill()
@@ -110,10 +110,10 @@ class WorkerFactory:
         print('Done.')
 
 
-TIMEOUT = 0 # 60 * 60  # 1 hour
+TIMEOUT = 60 * 60  # 1 hour
 
 # Number of divisions
-N_DIVISIONS = 5  
+N_DIVISIONS = 10
 
 class ConceptTask(Task):
 
@@ -174,63 +174,6 @@ class ConceptTask(Task):
         return running_result, self.partial_result_file
 
 
-class PartialConcept:
-    ALL = '__all__'
-
-    def __init__(self, mechanism):
-        self.mechanism = mechanism
-
-        self.remaining_cause_purviews = self.ALL
-        self.remaining_effect_purviews = self.ALL
-
-        self.completed_cause_purviews = []
-        self.completed_effect_purviews = []
-        
-        self.concept = None
-
-    @property
-    def unfinished(self):
-        return self.remaining_cause_purviews or self.remaining_effect_purviews
-        
-    def merge_concept(self, other):
-        if self.concept is None:
-            self.concept = other
-        else:
-            self.concept.cause = max(self.concept.cause, other.cause)
-            self.concept.effect = max(self.concept.effect, other.effect)
-            self.concept.time = self.concept.time + other.time
-
-        # Remove extra data
-        self.concept.subsystem = None  
-        self.concept.cause.ria._repertoire = None
-        self.concept.cause.ria._partitioned_repertoire = None
-        self.concept.effect.ria._repertoire = None
-        self.concept.effect.ria._partitioned_repertoire = None
-
-        return self
-
-    def merge_partial(self, other):
-        self.merge_concept(other.concept)
-        self.completed_cause_purviews += other.completed_cause_purviews
-        self.completed_effect_purviews += other.completed_effect_purviews
-        
-        self.remaining_cause_purviews = set(self.remaining_cause_purviews).union(other.remaining_cause_purviews) - set(self.completed_cause_purviews)
-
-        self.remaining_effect_purviews = set(self.remaining_effect_purviews).union(other.remaining_effect_purviews) - set(self.completed_effect_purviews)
-        return self
-
-    def divide(self, n):
-        """Split this task into ``n`` new tasks."""
-        for i in range(n):
-            c = PartialConcept(self.mechanism)
-            c.remaining_cause_purviews = self.remaining_cause_purviews[i::n]
-            c.remaining_effect_purviews = self.remaining_effect_purviews[i::n]
-            # completed_purviews are empty lists
-
-            if c.unfinished:
-                yield c
-
-
 def start_master(experiment, mechanisms, state, port):
 
     print(f'Starting {experiment.project_name}...')
@@ -242,7 +185,6 @@ def start_master(experiment, mechanisms, state, port):
         'miniconda.tar.gz',
         'worker.sh',
         'worker.py',
-        'master.py',
         'utils.py',
         'pyphi_config.yml',
         experiment.network_file
@@ -295,7 +237,7 @@ def start_master(experiment, mechanisms, state, port):
         q.submit(t)
         print(f"Submitted task {mechanism_labels}, command='{t.command}'")
 
-    print("Waiting for tasks to complete...")
+    print("Waiting for tasks to complete...", flush=True)
     while not q.empty():
 
         # Task ready?
@@ -336,11 +278,12 @@ def start_master(experiment, mechanisms, state, port):
 
         # Combine this partial result with any other partial results
         partial_concept, partial_filename = t.merge_results()
+        print('Updated partial concept to be')
+        print(partial_concept.concept, flush=True)
 
         # Did this piece complete the whole?
         if not partial_concept.unfinished:
             print('Writing final concept')
-            print(partial_concept.concept)          
             dump_pickle(t.result_file, partial_concept.concept)
             os.remove(partial_filename)
             

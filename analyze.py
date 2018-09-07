@@ -1,6 +1,7 @@
 
 import glob
 from master import load_pickle, hms
+import sys
 
 import matplotlib
 import pandas as pd
@@ -11,7 +12,7 @@ if __name__ == "__main__":
     def concept_name(concept):
         return ''.join(concept.node_labels.indices2labels(concept.mechanism))
 
-    directory = 'largepyr_2.1_00000000000000000000'
+    directory = sys.argv[1]
     ces = []
     runtimes = {} 
 

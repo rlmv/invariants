@@ -16,8 +16,8 @@ import numpy as np
 from time import time
 from docopt import docopt
 
-from utils import load_pickle, dump_pickle
-from master import PartialConcept
+from utils import load_pickle, dump_pickle, PartialConcept
+
 
 def str_to_mechanism(s):
     return tuple(int(n) for n in s.split(','))
@@ -48,6 +48,11 @@ if __name__ == "__main__":
     partial = load_pickle(infile)
     mechanism = partial.mechanism
 
+    if partial.concept is None:
+        partial.merge_concept(subsystem.null_concept)
+        partial.concept.time = 0
+        partial.concept.mechanism = mechanism
+
     if partial.remaining_cause_purviews == partial.ALL:
         partial.remaining_cause_purviews = subsystem.potential_purviews(
             pyphi.Direction.CAUSE, mechanism)
@@ -55,7 +60,8 @@ if __name__ == "__main__":
     if partial.remaining_effect_purviews == partial.ALL:
         partial.remaining_effect_purviews = subsystem.potential_purviews(
             pyphi.Direction.EFFECT, mechanism)
-        
+
+
     while partial.remaining_cause_purviews:
         cause_purview = partial.remaining_cause_purviews.pop()
         concept = subsystem.concept(mechanism, purviews=(), 
