@@ -174,6 +174,25 @@ class ConceptTask(Task):
         return running_result, self.partial_result_file
 
 
+def partial_child_task(child, experiment, network, state, input_files):
+    mechanism = child.mechanism
+    child_t = ConceptTask(experiment, network, state, mechanism)
+    dump_pickle(child_t.infile, child)
+
+    child_t.specify_input_file(child_t.infile, child_t.infile, cache=False)
+
+    for filename in input_files:
+        child_t.specify_input_file(filename, filename, cache=True)
+    
+    child_t.specify_output_file(child_t.outfile, child_t.outfile, cache=False)
+    
+    # Increase the priority so we can finish up all the parts before starting
+    # new concepts
+    child_t.specify_priority(1)
+
+    return child_t
+
+
 def start_master(experiment, mechanisms, state, port):
 
     print(f'Starting {experiment.project_name}...')
@@ -218,24 +237,25 @@ def start_master(experiment, mechanisms, state, port):
         t = ConceptTask(experiment, network, state, mechanism)
 
         if os.path.exists(t.result_file):
-            print('Skipping mechanism', mechanism_labels)
-            continue
+            print(mechanism_labels, 'complete. Skipping.')
+        
+        elif os.path.exists(t.partial_result_file):
+            print(mechanism_labels, 'partial result found; continuing...')
+            partial_concept = load_pickle(t.partial_result_file)
+            for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
+                child_t = partial_child_task(child, experiment, network, state, input_files)
+                # Submit the task
+                q.submit(child_t)
+                print(f"Submitted part {i} of {mechanism_labels}, command='{child_t.command}'")
 
-        partial_concept = PartialConcept(mechanism)
-        dump_pickle(t.infile, partial_concept)
-        t.specify_input_file(t.infile, t.infile, cache=False)
+        else:
+            partial_concept = PartialConcept(mechanism)
+            t = partial_child_task(partial_concept, experiment, network, state, input_files)
+            t.specify_priority(0)
 
-        # Else: check if partial files exist
-
-        for filename in input_files:
-            t.specify_input_file(filename, filename, cache=True)
-
-        # Output files are typically not cached
-        t.specify_output_file(t.outfile, t.outfile, cache=False)
-
-        # Submit the task
-        q.submit(t)
-        print(f"Submitted task {mechanism_labels}, command='{t.command}'")
+            # Submit the task
+            q.submit(t)
+            print(f"Submitted task {mechanism_labels}, command='{t.command}'")
 
     print("Waiting for tasks to complete...", flush=True)
     while not q.empty():
@@ -262,16 +282,8 @@ def start_master(experiment, mechanisms, state, port):
         if partial_concept.unfinished:
             print('Timed out. Submitting smaller jobs...')
             for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
-                mechanism = child.mechanism
-                child_t = ConceptTask(experiment, network, state, mechanism)
-                dump_pickle(child_t.infile, child)
-                child_t.specify_input_file(child_t.infile, child_t.infile, cache=False)
-
-                for filename in input_files:
-                    child_t.specify_input_file(filename, filename, cache=True)
-                    
-                child_t.specify_output_file(child_t.outfile, child_t.outfile, cache=False)
-
+                
+                child_t = partial_child_task(child, experiment, network, state, input_files)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted child {i}, command='{child_t.command}'")

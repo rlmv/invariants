@@ -110,9 +110,8 @@ class Experiment:
         
         return pyphi.models.CauseEffectStructure(concepts)
 
-        
 
-
+# TODO: rename to ConceptInProgress
 class PartialConcept:
     ALL = '__all__'
 

@@ -10,6 +10,8 @@ import pandas as pd
 if __name__ == "__main__":
     
     def concept_name(concept):
+        #TODO remove this
+        return concept.mechanism
         return ''.join(concept.node_labels.indices2labels(concept.mechanism))
 
     directory = sys.argv[1]
@@ -21,6 +23,8 @@ if __name__ == "__main__":
     for path in glob.glob(f'{directory}/*.pickle'):
         if 'network' not in path:
             concept = load_pickle(path)
+            # TODO: remove
+            concept.mechanism = path.split('/')[1].split('.')[0]
             if concept.phi > 0:
                 ces.append(concept)
             runtimes[concept_name(concept)] = concept.time
