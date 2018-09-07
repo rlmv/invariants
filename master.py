@@ -187,7 +187,7 @@ def partial_child_task(child, experiment, input_files, timeout):
     return t
 
 
-def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=10):
+def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2):
     print(f'Starting {experiment.project_name}...')
     start_time = time()
 
