@@ -37,8 +37,14 @@ class Experiment:
     def __init__(self, name, version, network, state):
         self.name = name
         self.version = version
-        self.network = network
-        self.state = state
+        self.state = tuple(state)
+        
+        # If network is not provided, assume we are loading
+        # an existing experiment.
+        if network is None:
+            self.load_network()
+        else:
+            self.network = network
 
     def __str__(self):
         return self.prefix
@@ -84,15 +90,19 @@ class Experiment:
         with open(self.experiment_file, 'w') as f:
             json.dump({'name': self.name,
                        'version': self.version,
-                       'state': self.state}, f, indent=2)
+                       'state': list(self.state)}, f, indent=2)
 
     def make_directory(self):
         if not os.path.exists(self.directory):
             os.mkdir(self.directory)
     
     def write_network_file(self):
-        with open(self.network_file, 'wb') as f:
-            pickle.dump(self.network, f)
+        dump_pickle(self.network_file, self.network)
+
+    def load_network_file(self):
+        print(f'Loading network from {self.network_file}...')
+        self.network = load_pickle(self.network_file)
+        return self.network
 
     # TODO: make sure it doesn't already exist?
     def initialize(self):

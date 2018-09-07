@@ -14,8 +14,6 @@ def test_simple():
     experiment.initialize()
 
     mechanisms = pyphi.utils.powerset(network.node_indices, nonempty=True)
-
-    password_file = 'password_file'
     
     print('Starting worker...')
     worker = subprocess.Popen([
@@ -27,7 +25,7 @@ def test_simple():
 
     try:
         print('Starting master...')
-        start_master(experiment, mechanisms, state, 10021)
+        start_master(experiment, mechanisms, 10021)
     except:
         raise
     finally:

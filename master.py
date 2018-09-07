@@ -117,11 +117,9 @@ N_DIVISIONS = 10
 
 class ConceptTask(Task):
 
-    def __init__(self, experiment, network, state, mechanism):
+    def __init__(self, experiment, mechanism):
         self.experiment = experiment
-        self.network = network
         self.mechanism = mechanism
-        self.state = state
 
         # Unique ID for this task
         # Work Queue tasks also have an `id`, but this is not generated
@@ -134,7 +132,7 @@ class ConceptTask(Task):
     def command(self):
         return "sh worker.sh {} {} {} {} {}".format(
                 self.experiment.network_file,
-                mechanism_to_str(self.state),
+                mechanism_to_str(self.experiment.state),
                 self.infile,
                 self.outfile,
                 TIMEOUT)
@@ -145,7 +143,7 @@ class ConceptTask(Task):
 
     @property
     def result_file(self):
-        return f'{self.experiment.directory}/{mechanism_to_labels(self.network, self.mechanism)}.pickle'
+        return f'{self.experiment.directory}/{mechanism_to_labels(self.experiment.network, self.mechanism)}.pickle'
 
     @property
     def partial_result_file(self):
@@ -174,31 +172,28 @@ class ConceptTask(Task):
         return running_result, self.partial_result_file
 
 
-def partial_child_task(child, experiment, network, state, input_files):
+def partial_child_task(child, experiment, input_files):
     mechanism = child.mechanism
-    child_t = ConceptTask(experiment, network, state, mechanism)
-    dump_pickle(child_t.infile, child)
+    t = ConceptTask(experiment, mechanism)
+    dump_pickle(t.infile, child)
 
-    child_t.specify_input_file(child_t.infile, child_t.infile, cache=False)
+    t.specify_input_file(t.infile, t.infile, cache=False)
 
     for filename in input_files:
-        child_t.specify_input_file(filename, filename, cache=True)
+        t.specify_input_file(filename, filename, cache=True)
     
-    child_t.specify_output_file(child_t.outfile, child_t.outfile, cache=False)
+    t.specify_output_file(t.outfile, t.outfile, cache=False)
     
     # Increase the priority so we can finish up all the parts before starting
     # new concepts
-    child_t.specify_priority(1)
+    t.specify_priority(1)
 
-    return child_t
+    return t
 
 
-def start_master(experiment, mechanisms, state, port):
-
+def start_master(experiment, mechanisms, port):
     print(f'Starting {experiment.project_name}...')
     start_time = time()
-
-    network = load_pickle(experiment.network_file)
 
     input_files = [
         'miniconda.tar.gz',
@@ -232,9 +227,9 @@ def start_master(experiment, mechanisms, state, port):
 
     for mechanism in mechanisms:
         mechanism = tuple(mechanism)
-        mechanism_labels = mechanism_to_labels(network, mechanism)
+        mechanism_labels = mechanism_to_labels(experiment.network, mechanism)
 
-        t = ConceptTask(experiment, network, state, mechanism)
+        t = ConceptTask(experiment, mechanism)
 
         if os.path.exists(t.result_file):
             print(mechanism_labels, 'complete. Skipping.')
@@ -243,14 +238,13 @@ def start_master(experiment, mechanisms, state, port):
             print(mechanism_labels, 'partial result found; continuing...')
             partial_concept = load_pickle(t.partial_result_file)
             for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
-                child_t = partial_child_task(child, experiment, network, state, input_files)
+                child_t = partial_child_task(child, experiment, input_files)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted part {i} of {mechanism_labels}, command='{child_t.command}'")
-
         else:
             partial_concept = PartialConcept(mechanism)
-            t = partial_child_task(partial_concept, experiment, network, state, input_files)
+            t = partial_child_task(partial_concept, experiment, input_files)
             t.specify_priority(0)
 
             # Submit the task
@@ -283,7 +277,7 @@ def start_master(experiment, mechanisms, state, port):
             print('Timed out. Submitting smaller jobs...')
             for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
                 
-                child_t = partial_child_task(child, experiment, network, state, input_files)
+                child_t = partial_child_task(child, experiment, input_files)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted child {i}, command='{child_t.command}'")
@@ -328,5 +322,5 @@ if __name__ == '__main__':
     port = 10006
 
     with WorkerFactory(experiment) as factory:
-        start_master(experiment, mechanisms, state, port)
+        start_master(experiment, mechanisms, port)
 

@@ -18,7 +18,7 @@ def test_factory():
     mechanisms = pyphi.utils.powerset(network.node_indices, nonempty=True)
 
     with WorkerFactory(experiment) as factory:
-        start_master(experiment, mechanisms, state, port)
+        start_master(experiment, mechanisms, port)
 
     # Load CES
     ces = experiment.load_ces()
