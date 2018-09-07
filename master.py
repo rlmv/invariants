@@ -110,16 +110,12 @@ class WorkerFactory:
         print('Done.')
 
 
-TIMEOUT = 60 * 60  # 1 hour
-
-# Number of divisions
-N_DIVISIONS = 10
-
 class ConceptTask(Task):
 
-    def __init__(self, experiment, mechanism):
+    def __init__(self, experiment, mechanism, timeout):
         self.experiment = experiment
         self.mechanism = mechanism
+        self.timeout = timeout
 
         # Unique ID for this task
         # Work Queue tasks also have an `id`, but this is not generated
@@ -135,7 +131,7 @@ class ConceptTask(Task):
                 mechanism_to_str(self.experiment.state),
                 self.infile,
                 self.outfile,
-                TIMEOUT)
+                self.timeout)
 
     @property
     def infile(self):
@@ -172,9 +168,9 @@ class ConceptTask(Task):
         return running_result, self.partial_result_file
 
 
-def partial_child_task(child, experiment, input_files):
+def partial_child_task(child, experiment, input_files, timeout):
     mechanism = child.mechanism
-    t = ConceptTask(experiment, mechanism)
+    t = ConceptTask(experiment, mechanism, timeout)
     dump_pickle(t.infile, child)
 
     t.specify_input_file(t.infile, t.infile, cache=False)
@@ -191,7 +187,7 @@ def partial_child_task(child, experiment, input_files):
     return t
 
 
-def start_master(experiment, mechanisms, port):
+def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=10):
     print(f'Starting {experiment.project_name}...')
     start_time = time()
 
@@ -229,7 +225,7 @@ def start_master(experiment, mechanisms, port):
         mechanism = tuple(mechanism)
         mechanism_labels = mechanism_to_labels(experiment.network, mechanism)
 
-        t = ConceptTask(experiment, mechanism)
+        t = ConceptTask(experiment, mechanism, timeout)
 
         if os.path.exists(t.result_file):
             print(mechanism_labels, 'complete. Skipping.')
@@ -237,14 +233,14 @@ def start_master(experiment, mechanisms, port):
         elif os.path.exists(t.partial_result_file):
             print(mechanism_labels, 'partial result found; continuing...')
             partial_concept = load_pickle(t.partial_result_file)
-            for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
-                child_t = partial_child_task(child, experiment, input_files)
+            for i, child in enumerate(partial_concept.divide(n_divisions)):
+                child_t = partial_child_task(child, experiment, input_files, timeout)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted part {i} of {mechanism_labels}, command='{child_t.command}'")
         else:
             partial_concept = PartialConcept(mechanism)
-            t = partial_child_task(partial_concept, experiment, input_files)
+            t = partial_child_task(partial_concept, experiment, input_files, timeout)
             t.specify_priority(0)
 
             # Submit the task
@@ -275,9 +271,9 @@ def start_master(experiment, mechanisms, port):
 
         if partial_concept.unfinished:
             print('Timed out. Submitting smaller jobs...')
-            for i, child in enumerate(partial_concept.divide(N_DIVISIONS)):
+            for i, child in enumerate(partial_concept.divide(n_divisions)):
                 
-                child_t = partial_child_task(child, experiment, input_files)
+                child_t = partial_child_task(child, experiment, input_files, timeout)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted child {i}, command='{child_t.command}'")

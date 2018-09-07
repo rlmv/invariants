@@ -25,7 +25,7 @@ def test_simple():
 
     try:
         print('Starting master...')
-        start_master(experiment, mechanisms, 10021)
+        start_master(experiment, mechanisms, port=10021, timeout=0, n_divisions=2)
     except:
         raise
     finally:
