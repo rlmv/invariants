@@ -244,11 +244,9 @@ def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2
     print("Waiting for tasks to complete...", flush=True)
     while not q.empty():
 
-        # Task ready?
-        t = q.wait(5)
-        if not t:
-            continue
-        
+        # Wait for completed task
+        t = q.wait(WORK_QUEUE_WAITFORTASK)
+
         print()
         print('Got result', t.outfile)
         print( 'Result code', t.result)
