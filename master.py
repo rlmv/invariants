@@ -204,6 +204,7 @@ def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2
     
     # Enable debug logging
     # cctools_debug_flags_set("wq")
+    # cctools_debug_config_file('wq.debug')
     q.specify_log(experiment.stats_log_file)
 
     # Identify our master via a catalog server
@@ -258,7 +259,12 @@ def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2
         if t.return_status != 0:
             print(t.output)
             print('Return status:', t.return_status)
-            sys.exit(1)
+
+            if t.return_status == 135:  # Bus Error 
+                print('Retrying...')
+                q.submit(t)
+            else:
+                sys.exit(1)
             
         partial_concept = load_pickle(t.outfile)
 
