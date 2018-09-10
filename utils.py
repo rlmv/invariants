@@ -42,7 +42,7 @@ class Experiment:
         # If network is not provided, assume we are loading
         # an existing experiment.
         if network is None:
-            self.load_network()
+            self.load_network_file()
         else:
             self.network = network
 
@@ -162,14 +162,20 @@ class PartialConcept:
         self.completed_cause_purviews += other.completed_cause_purviews
         self.completed_effect_purviews += other.completed_effect_purviews
 
-        # TODO: convert to lists
-        self.remaining_cause_purviews = set(self.remaining_cause_purviews).union(other.remaining_cause_purviews) - set(self.completed_cause_purviews)
+        def sort_purviews(purviews):
+            return sorted(purviews, key=lambda p: len(p))
 
-        self.remaining_effect_purviews = set(self.remaining_effect_purviews).union(other.remaining_effect_purviews) - set(self.completed_effect_purviews)
+        self.remaining_cause_purviews = sort_purviews(set(self.remaining_cause_purviews).union(other.remaining_cause_purviews) - set(self.completed_cause_purviews))
+
+        self.remaining_effect_purviews = sort_purviews(set(self.remaining_effect_purviews).union(other.remaining_effect_purviews) - set(self.completed_effect_purviews))
         return self
 
     def divide(self, n):
         """Split this task into ``n`` new tasks."""
+
+        self.remaining_cause_purviews = list(self.remaining_cause_purviews)
+        self.remaining_effect_purviews = list(self.remaining_effect_purviews)
+
         for i in range(n):
             c = PartialConcept(self.mechanism)
             c.remaining_cause_purviews = self.remaining_cause_purviews[i::n]
