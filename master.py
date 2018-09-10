@@ -168,13 +168,21 @@ class ConceptTask(Task):
         return running_result, self.partial_result_file
 
 
-def partial_child_task(child, experiment, input_files, timeout):
+def partial_child_task(child, experiment, timeout):
     mechanism = child.mechanism
     t = ConceptTask(experiment, mechanism, timeout)
     dump_pickle(t.infile, child)
 
     t.specify_input_file(t.infile, t.infile, cache=False)
 
+    input_files = [
+        'miniconda.tar.gz',
+        'worker.sh',
+        'worker.py',
+        'utils.py',
+        'pyphi_config.yml',
+        experiment.network_file
+     ]
     for filename in input_files:
         t.specify_input_file(filename, filename, cache=True)
     
@@ -188,27 +196,14 @@ def partial_child_task(child, experiment, input_files, timeout):
 
 
 def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2):
-    print(f'Starting {experiment.project_name}...')
     start_time = time()
-
-    input_files = [
-        'miniconda.tar.gz',
-        'worker.sh',
-        'worker.py',
-        'utils.py',
-        'pyphi_config.yml',
-        experiment.network_file
-     ]
-    
-    for filename in input_files:
-        if not os.path.exists(filename):
-            print(f'Input file {filename} not found')
-            sys.exit(1)
+    print(f'Starting {experiment.project_name}...')
 
     q = WorkQueue(port)
+    print(f"Listening on port {port}...")
     
     # Enable debug logging
-#    cctools_debug_flags_set("wq")
+    # cctools_debug_flags_set("wq")
     q.specify_log(experiment.stats_log_file)
 
     # Identify our master via a catalog server
@@ -218,8 +213,6 @@ def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2
     
     # Enable password file
     q.specify_password_file(experiment.password_file)
-
-    print("Listening on port %d..." % q.port)
 
     for mechanism in mechanisms:
         mechanism = tuple(mechanism)
@@ -234,13 +227,13 @@ def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2
             print(mechanism_labels, 'partial result found; continuing...')
             partial_concept = load_pickle(t.partial_result_file)
             for i, child in enumerate(partial_concept.divide(n_divisions)):
-                child_t = partial_child_task(child, experiment, input_files, timeout)
+                child_t = partial_child_task(child, experiment, timeout)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted part {i} of {mechanism_labels}, command='{child_t.command}'")
         else:
             partial_concept = PartialConcept(mechanism)
-            t = partial_child_task(partial_concept, experiment, input_files, timeout)
+            t = partial_child_task(partial_concept, experiment, timeout)
             t.specify_priority(0)
 
             # Submit the task
@@ -273,7 +266,7 @@ def start_master(experiment, mechanisms, port=10001, timeout=3600, n_divisions=2
             print('Timed out. Submitting smaller jobs...')
             for i, child in enumerate(partial_concept.divide(n_divisions)):
                 
-                child_t = partial_child_task(child, experiment, input_files, timeout)
+                child_t = partial_child_task(child, experiment, timeout)
                 # Submit the task
                 q.submit(child_t)
                 print(f"Submitted child {i}, command='{child_t.command}'")
