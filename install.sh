@@ -56,7 +56,7 @@ mv $MINICONDA_TARBALL $CURRENT
 cd $CURRENT
 
 # Install CC Tools (WorkQueue)
-CCTOOLS_NAME=cctools-7.0.3-source
+CCTOOLS_NAME=cctools-7.0.4-source
 CCTOOLS_BUILD=$HOME/cctools
 wget http://ccl.cse.nd.edu/software/files/$CCTOOLS_NAME.tar.gz
 tar zxvf $CCTOOLS_NAME.tar.gz
