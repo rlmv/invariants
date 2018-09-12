@@ -61,7 +61,7 @@ CCTOOLS_BUILD=$HOME/cctools
 wget http://ccl.cse.nd.edu/software/files/$CCTOOLS_NAME.tar.gz
 tar zxvf $CCTOOLS_NAME.tar.gz
 cd $CCTOOLS_NAME
-./configure --with-python-path no --with-perl-path no --with-globus-path no --with-python3-path $MINICONDA_BUILD
+./configure --debug --with-perl-path no --with-globus-path no --with-python-path no  --with-python3-path $MINICONDA_BUILD
 make
 make install
 cd $CURRENT
