@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -x
+set -e
 
 # VERSION=3.6.3
 # PYTHON_URL=https://www.python.org/ftp/python/$VERSION/Python-$VERSION.tgz
@@ -47,6 +48,7 @@ chmod +x $MINICONDA_INSTALLER
 rm $MINICONDA_INSTALLER
 
 # Install requirements into Miniconda
+$MINICONDA_BUILD/bin/conda install --yes python=3.6
 $MINICONDA_BUILD/bin/pip install -r requirements.txt
 
 # Make a tarball of Miniconda
