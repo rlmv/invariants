@@ -24,7 +24,7 @@ if __name__ == "__main__":
         if 'network' not in path:
             concept = load_pickle(path)
             # TODO: remove
-            concept.mechanism = path.split('/')[1].split('.')[0]
+            concept.mechanism = path.split('/')[-1].split('.')[0]
             if concept.phi > 0:
                 ces.append(concept)
             runtimes[concept_name(concept)] = concept.time
