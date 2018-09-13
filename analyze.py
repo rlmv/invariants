@@ -35,8 +35,10 @@ if __name__ == "__main__":
                 concept.phi,
                 hms(concept.time)))
 
-    print()
-    print('Longest computation times:')
+    print('\nLongest computation times (H:M:S)')
 
     for name, time in sorted(runtimes.items(), key=lambda x: x[1], reverse=True)[:20]:
         print("{:6}{}".format(name, hms(time)))
+
+    print('\nTotal computation time:', hms(sum(runtimes.values())), '\n')
+
