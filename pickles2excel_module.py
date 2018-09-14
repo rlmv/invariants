@@ -33,7 +33,7 @@ def pickles2excel(network_pickle, state):
     sheet = book.worksheets[0]
     startrow = sheet.max_row
 
-    pickles = [pickle for pickle in (sorted(sorted(glob.iglob('*.pickle')),key=len))]
+    pickles = sorted(sorted(glob.iglob('*.pickle')),key=len)
     
     for pickle in pickles:
         
