@@ -82,8 +82,9 @@ class WorkerFactory:
         with WorkerFactory(...) as factory:
             start_master(...)
     """
-    def __init__(self, experiment):
+    def __init__(self, experiment, memory=4096):
         self.experiment = experiment
+        self.memory = memory
         self.process = None
 
     def __enter__(self):
@@ -95,7 +96,7 @@ class WorkerFactory:
                 'work_queue_factory', 
                 '--master-name', self.experiment.project_name,
                 '--password', self.experiment.password_file, 
-                '--memory', '8192',
+                '--memory', str(self.memory),
                 '--batch-type', 'condor',
                 '--max-workers', '1000',
                 '-d', 'wq',

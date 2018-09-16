@@ -24,5 +24,5 @@ if __name__ == '__main__':
 
     port = 10010
 
-    with WorkerFactory(experiment) as f:
+    with WorkerFactory(experiment, memory=10024) as f:
         start_master(experiment, mechanisms, port=port, n_divisions=10)
